@@ -1,16 +1,18 @@
 # macOS 사용 및 빌드
 
-1.3.0에서 macOS용 소스와 빌드 설정을 추가했습니다. 지원 대상으로 설정한 시스템은 macOS 13 이상이며 Apple Silicon(arm64)과 Intel(x64)을 각각 패키징합니다. 현재 개발 환경은 Windows이므로 실제 macOS 컴파일·실행·권한 승인 검증을 완료한 버전은 아닙니다.
+1.3.0에서 macOS용 소스와 빌드 설정을 추가했습니다. 지원 대상으로 설정한 시스템은 macOS 13 이상이며 Apple Silicon(arm64)과 Intel(x64)을 각각 패키징합니다. 2026-10-19에 원격 커밋 `405b200`을 실제 macOS GitHub Actions에서 새로 실행하여 컴파일·DMG/ZIP 생성·번들 검사·산출물 업로드가 성공했습니다. 사용자 맥에서의 실제 실행과 권한 승인·입력·드래그는 별도로 확인해야 합니다.
 
 ## 맥 없이 설치 파일 만들기
 
 1. 변경된 소스와 `.github/workflows/build-macos.yml`을 저장소에 커밋하고 푸시합니다. 이 작업은 사용자가 직접 합니다.
-2. GitHub 저장소 → **Actions** → **Build macOS** → **Run workflow**를 선택합니다.
+2. 이제 `main`에 코드 변경을 푸시하면 **Build macOS**가 자동으로 시작됩니다. 수동 실행은 GitHub 저장소 → **Actions** → **Build macOS** → **Run workflow**에서 가능합니다.
 3. 성공한 작업 아래 **Artifacts → keyboard-cat-macos**를 다운로드하고 압축을 풉니다.
 4. `Keyboard-Cat-1.3.0-mac-arm64.dmg`는 Apple Silicon, `Keyboard-Cat-1.3.0-mac-x64.dmg`는 Intel용입니다. 앱 ZIP도 함께 생성합니다.
 5. 일반 사용자에게 배포하려면 해당 DMG를 GitHub Releases에 별도로 첨부합니다. 이 workflow는 릴리스를 게시하지 않고 빌드 산출물만 저장합니다.
 
 빌드 작업은 네이티브 보조 프로그램을 두 아키텍처로 컴파일하고, 분류 로직·공통 테스트·번들 구성·실행 권한·Info.plist를 검사합니다. 물리 키보드와 마우스, TCC 권한, Spaces의 실제 동작을 검증하는 작업은 아닙니다. 빌드 실패 시 Actions 로그를 확인하세요.
+
+**기존 실패 작업의 Re-run jobs는 그 작업의 이전 커밋을 다시 사용합니다.** 수정 코드를 검증하려면 새 자동 빌드 또는 main에서 시작한 새 수동 실행을 확인하세요. 새 작업 이름과 첫 단계에 빌드 커밋 SHA를 표시합니다. 아키텍처 검사는 별도 스크립트로 수행하며, 두 CPU용 앱과 DMG/ZIP 네 파일이 모두 있는지도 검사합니다.
 
 ## 설치와 입력 권한
 

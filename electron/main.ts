@@ -17,7 +17,7 @@ if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
 function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt);if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {platform:process.platform,options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state(),serialized=JSON.stringify(value);if(serialized===lastSent)return;lastSent=serialized;stateMessages++;for(const view of [win,remote])if(view&&!view.isDestroyed())view.webContents.send('state',value);}
-function save(){const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
+function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
 function stopInput(){const old=helper;helper=undefined;old?.kill();}
 function startInput(){if(paused||suspended||helper||smoke)return;hookError='';
  const child=spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid)],{windowsHide:true,stdio:['ignore','pipe','pipe']});helper=child;
@@ -37,10 +37,10 @@ function apply(patch:unknown){finishCarry();options=updateOptions(options,patch)
 async function openRemote(){
  if(remote&&!remote.isDestroyed()){remote.show();remote.focus();return;}
  const a=screen.getPrimaryDisplay().workArea;
- remote=new BrowserWindow({title:'Keyboard Cat 리모컨',width:350,height:Math.min(700,a.height),x:a.x+Math.max(0,a.width-362),y:a.y+Math.max(0,a.height-712),resizable:false,show:false,autoHideMenuBar:true,backgroundColor:'#111826',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
- secure(remote);remote.on('closed',()=>{remote=undefined;});
+ const panel=new BrowserWindow({title:'Keyboard Cat 리모컨',width:350,height:Math.min(700,a.height),x:a.x+Math.max(0,a.width-362),y:a.y+Math.max(0,a.height-712),resizable:false,show:false,autoHideMenuBar:true,backgroundColor:'#111826',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true}});remote=panel;
+ secure(panel);panel.on('closed',()=>{if(remote===panel)remote=undefined;});
  // Opening the controller must not change the position chosen by the user.
- await remote.loadFile(path.join(__dirname,'../dist/index.html'),{query:{panel:'1'}});remote.show();
+ try{await panel.loadFile(path.join(__dirname,'../dist/index.html'),{query:{panel:'1'}});if(!quitting&&!panel.isDestroyed())panel.show();}catch(error){if(!quitting&&!panel.isDestroyed()){panel.destroy();dialog.showErrorBox('리모컨 열기 실패',String(error));}}
 }
 function refresh(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
  {label:'리모컨 열기',click:()=>{void openRemote();}},
@@ -61,7 +61,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   if(process.platform==='darwin'){win.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});Menu.setApplicationMenu(Menu.buildFromTemplate([{role:'appMenu'},{role:'editMenu'}]));}
   if(Number.isFinite(saved.x)&&Number.isFinite(saved.y)&&screen.getAllDisplays().some(d=>saved.x!+petRect(options.size).x>=d.workArea.x-1&&saved.x!+petRect(options.size).x+petRect(options.size).width<=d.workArea.x+d.workArea.width+1&&saved.y!+petRect(options.size).y>=d.workArea.y-1&&saved.y!+248<=d.workArea.y+d.workArea.height+1))win.setPosition(saved.x!,saved.y!);else center();
   session.defaultSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!d.url.startsWith('file:')&&!d.url.startsWith('data:')}));
-  const trusted=(sender:Electron.WebContents)=>!sender.isDestroyed()&&((!win.isDestroyed()&&sender===win.webContents)||(!!remote&&!remote.isDestroyed()&&sender===remote.webContents));
+  const trusted=(sender:Electron.WebContents)=>!quitting&&!win.isDestroyed()&&!sender.isDestroyed()&&(sender===win.webContents||(!!remote&&!remote.isDestroyed()&&sender===remote.webContents));
   ipcMain.handle('snapshot',e=>{if(trusted(e.sender))return state();});
   ipcMain.on('options',(e,p)=>{if(trusted(e.sender))apply(p);});
   ipcMain.on('hover',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e.sender)&&e.sender===win.webContents&&!moving&&!carried)win.setIgnoreMouseEvents(!(options.grabEnabled&&on===true),{forward:true});});

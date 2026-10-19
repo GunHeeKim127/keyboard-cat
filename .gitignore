@@ -142,3 +142,5 @@ dist
 /node_modules/
 /.npm-cache/
 /native/*.exe
+/native/KeyCounter-mac
+/native/.build/

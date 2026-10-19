@@ -1,0 +1,36 @@
+name: Build macOS
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: node scripts/check-native.cjs
+      - name: Verify universal input helper
+        run: |
+          lipo -verify_arch arm64 x86_64 native/KeyCounter-mac
+          codesign --verify --strict native/KeyCounter-mac
+      - run: npm run dist:mac
+      - name: Check packaged helper and application
+        run: node scripts/check-mac-package.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keyboard-cat-macos
+          path: |
+            release/*-mac-*.dmg
+            release/*-mac-*.zip
+          if-no-files-found: error
+          retention-days: 14

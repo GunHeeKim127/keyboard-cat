@@ -1,4 +1,6 @@
-# Keyboard Cat 1.2.1
+# Keyboard Cat 1.3.0
+
+macOS 입력 감지, 권한 안내와 Apple Silicon/Intel용 DMG 빌드 설정을 추가했습니다. 맥 설치 및 GitHub Actions 빌드 방법은 [MACOS.md](MACOS.md)에 있습니다. macOS 실제 실행은 아직 검증하지 않았습니다. Windows 빌드 방법과 기능은 유지합니다. 최신 Windows EXE 이름의 버전은 1.3.0입니다.
 
 1.2.1은 놓을 때 고양이의 표시 위치가 튀던 좌표 계산과 화면 가장자리 제한을 수정했습니다. 리모컨을 열어도 고양이 위치를 바꾸지 않습니다. 드래그·자동 이동·위치 조정 방향에 따라 고양이와 모든 스프라이트를 좌우로 뒤집으며, 대시·공격 효과도 같은 방향으로 움직입니다. 실행 검증은 임시 설정 폴더를 사용해 사용자의 저장 위치를 변경하지 않습니다. 최신 배포 EXE 이름의 버전은 1.2.1입니다.
 
@@ -6,7 +8,7 @@ Windows용 흰색 고양이 데스크톱 펫입니다. Electron + React + TypeSc
 
 ## 바로 실행
 
-`Start Keyboard Cat.cmd`를 더블클릭하세요. `release/win-unpacked/Keyboard Cat.exe`를 실행하며 Node.js 설치가 필요하지 않습니다. `release/Keyboard Cat 1.2.1.exe`는 휴대용, `release/Keyboard Cat Setup 1.2.1.exe`는 설치형입니다. 코드 서명은 설정하지 않았습니다.
+`Start Keyboard Cat.cmd`를 더블클릭하세요. `release/win-unpacked/Keyboard Cat.exe`를 실행하며 Node.js 설치가 필요하지 않습니다. `release/Keyboard Cat 1.3.0.exe`는 휴대용, `release/Keyboard Cat Setup 1.3.0.exe`는 설치형입니다. 코드 서명은 설정하지 않았습니다.
 
 ## 리모컨과 조작
 

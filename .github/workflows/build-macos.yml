@@ -51,9 +51,15 @@ jobs:
         run: node scripts/check-mac-package.cjs
       - uses: actions/upload-artifact@v6
         with:
-          name: keyboard-cat-macos
-          path: |
-            release/*-mac-*.dmg
-            release/*-mac-*.zip
+          name: keyboard-cat-macos-AppleSilicon-DMG
+          path: release/*-mac-arm64.dmg
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v6
+        with:
+          name: keyboard-cat-macos-Intel-DMG
+          path: release/*-mac-x64.dmg
+          compression-level: 0
           if-no-files-found: error
           retention-days: 14

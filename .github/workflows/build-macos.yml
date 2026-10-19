@@ -21,7 +21,7 @@ jobs:
       - run: node scripts/check-native.cjs
       - name: Verify universal input helper
         run: |
-          lipo -verify_arch arm64 x86_64 native/KeyCounter-mac
+          lipo native/KeyCounter-mac -verify_arch arm64 x86_64
           codesign --verify --strict native/KeyCounter-mac
       - run: npm run dist:mac
       - name: Check packaged helper and application

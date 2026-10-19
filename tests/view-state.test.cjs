@@ -1,0 +1,3 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const {animationState:view}=require('../dist-electron/view-state.js');
+test('low power idles and sleeps without animation; pause freezes',()=>{assert.deepEqual(view(false,true,false,0,0,0,2000),{action:'IDLE',effect:0,animate:false});assert.equal(view(false,true,false,30000,0,0,2000).animate,false);assert.equal(view(true,false,false,500,50,50,1).animate,false);});
+test('effects expire and walking/typing remain animated',()=>{assert.equal(view(false,true,false,100,50,50,1099).action,'ATTACK');assert.equal(view(false,true,false,4001,0,50,1100).action,'WALK');assert.equal(view(false,true,false,4001,0,0,2000).animate,true);});

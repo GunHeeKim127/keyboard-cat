@@ -1,0 +1,5 @@
+Built-in ImageGen used with IDLE-0.png as identity/style reference; transparent background requested.
+
+Single transparent desktop pet pixel sprite: the same small white kitten with dark eyes, peach ears and beige cheeks, dangling upright from an implied grip at the scruff behind its neck. Head looking right, body vertically below head, paws dangling relaxed and tail curved down. Calm surprised expression. Scruff anchor at x=50%, y=20%. No hand, mouse cursor, string, text, grid or background. Hard pixel edges, matching the original identity. Full cat with transparent margins.
+
+Generated source: carry-source.png. Runtime texture: carry.png (100x110, alpha preserved, nearest-neighbor scaling). The pointer anchor is at (50,22).

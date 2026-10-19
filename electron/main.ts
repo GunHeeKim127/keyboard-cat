@@ -79,6 +79,18 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    const report=await win.webContents.executeJavaScript(`new Promise(resolve=>{const check=()=>{const img=document.querySelector('img');if(img&&img.complete&&img.naturalWidth>0)resolve({ready:!!window.cat,width:img.naturalWidth});else setTimeout(check,50);};check();setTimeout(()=>resolve({ready:false}),5000);})`);
    const panelReport=await remote!.webContents.executeJavaScript(`new Promise(resolve=>setTimeout(()=>resolve({presets:document.querySelectorAll('[data-preset]').length,toggles:document.querySelectorAll('input[type=checkbox]').length,scroll:document.documentElement.scrollHeight>innerHeight}),200))`);
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
+   await remote!.webContents.executeJavaScript(`(()=>{const input=document.querySelector('#avatar-name');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'테스트 나비');input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+   await new Promise(r=>setTimeout(r,80));
+   await remote!.webContents.executeJavaScript(`document.querySelector('.avatar-settings').requestSubmit()`);
+   await new Promise(r=>setTimeout(r,150));
+   if(options.avatarName!=='테스트 나비'||JSON.parse(readFileSync(settingsPath(),'utf8')).options.avatarName!=='테스트 나비')throw Error('Avatar name not saved');
+   await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);
+   await new Promise(r=>setTimeout(r,100));
+   const nameShown=await win.webContents.executeJavaScript(`(()=>{const n=document.querySelector('.avatar-name'),p=document.querySelector('.pet');return n?.textContent==='테스트 나비'&&n.getBoundingClientRect().top>=p.getBoundingClientRect().bottom;})()`);
+   if(!nameShown)throw Error('Hover name not shown below avatar');
+   await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))`);
+   await new Promise(r=>setTimeout(r,100));
+   if(await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`))throw Error('Hover name did not hide');
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-preset=high]').click()`);await new Promise(r=>setTimeout(r,150));if(options.fps!==12||!options.wander)throw Error('Preset control failed');
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-preset=low]').click()`);await new Promise(r=>setTimeout(r,150));if(Number(options.fps)!==5||options.wander)throw Error('Low preset failed');
    lastHit=Date.now()-31000;apply({sleepAnimation:true});await new Promise(r=>setTimeout(r,150));

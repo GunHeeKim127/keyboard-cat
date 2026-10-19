@@ -74,3 +74,11 @@ node scripts/check-native.cjs
 원본 시트는 `public/sprites/source.png`, 원본에서 분리한 투명 프레임은 40개, 런타임 아틀라스는 6개입니다. 생성한 들린 자세는 `public/sprites/carry-source.png`, 실행용 100×110 텍스처는 `public/sprites/carry.png`입니다. 내장 ImageGen을 사용했으며 프롬프트와 커서 기준점은 `public/sprites/carry-prompt.txt`에 기록했습니다.
 
 참고: [Electron BrowserWindow](https://www.electronjs.org/docs/latest/api/browser-window), [Microsoft Raw Input](https://learn.microsoft.com/en-us/windows/win32/inputdev/about-raw-input), [RAWKEYBOARD](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawkeyboard).
+
+## macOS 서명 및 공증 배포
+
+일반 사용자용 Developer ID 서명·Apple 공증 빌드와 터미널 없는 기존 앱 실행 안내는 [MACOS-DISTRIBUTION.md](MACOS-DISTRIBUTION.md)를 참고하세요. 무공증 테스트 빌드와 공증 배포 빌드는 Actions 이름 및 아티팩트에서 구분합니다.
+
+## 아바타 이름
+
+Windows와 macOS 모두 리모컨 상단의 아바타 이름에서 이름을 입력하고 저장할 수 있습니다. 고양이에 마우스를 올린 동안 하단에 이름이 나타납니다. 최대 20자이며 빈 이름은 고양이로 저장합니다. 이름은 다음 실행과 품질 변경 후에도 유지됩니다.

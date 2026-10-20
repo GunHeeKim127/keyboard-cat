@@ -19,7 +19,7 @@ let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefine
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='강아지 보행 수정 2';
+const buildLabel='보행·프레임 수정 3 · 이름 표시 설정';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -138,6 +138,14 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))`);
    await new Promise(r=>setTimeout(r,100));
    if(await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`))throw Error('Hover name did not hide');
+   for(const mode of ['always','hidden','hover'] as const){
+    await remote!.webContents.executeJavaScript(`(()=>{const select=document.querySelector('#avatar-name-display');select.value=${JSON.stringify(mode)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,100));
+    if(options.nameDisplay!==mode||JSON.parse(readFileSync(settingsPath(),'utf8')).options.nameDisplay!==mode)throw Error('Name display setting not saved');
+    const visible=await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`);if(visible!==(mode==='always'))throw Error('Name visibility without hover failed');
+    await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);await new Promise(r=>setTimeout(r,70));
+    const hoveredName=await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`);if(hoveredName!==(mode!=='hidden'))throw Error('Name visibility with hover failed');
+    await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))`);await new Promise(r=>setTimeout(r,70));
+   }
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-preset=high]').click()`);await new Promise(r=>setTimeout(r,150));if(options.fps!==12||!options.wander)throw Error('Preset control failed');
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-preset=low]').click()`);await new Promise(r=>setTimeout(r,150));if(Number(options.fps)!==5||options.wander)throw Error('Low preset failed');
    lastHit=Date.now()-31000;apply({sleepAnimation:true});await new Promise(r=>setTimeout(r,150));
@@ -179,8 +187,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,100));
      const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return !!img&&img.complete&&img.naturalWidth>0&&img.getAttribute('src').startsWith('./sprites/dog-'+${JSON.stringify(breed)}+'-');})()`);
      if(!loaded)throw Error('Dog animation failed: '+breed+' '+action);
-     const timing=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),style=getComputedStyle(img);return {duration:parseFloat(style.animationDuration),name:style.animationName,width:img.naturalWidth};})()`);
-     if(action==='WALK'&&timing.width!==800)throw Error('Dog walk needs eight frames');
+     const timing=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),style=getComputedStyle(img);return {duration:Number(img.dataset.cycleDuration),name:style.animationName,width:img.naturalWidth,frames:Number(img.dataset.frameCount)};})()`);
+     if(action==='WALK'&&(timing.width!==100||timing.frames!==8))throw Error('Dog walk needs eight frames');
      if((action==='FALL'||action==='LAND')&&timing.name!=='none')throw Error('Single pose should hold still');
      if(action==='SLEEP'&&timing.duration<2.4)throw Error('Dog sleep cycle too fast');
      if(action==='ATTACK'&&timing.duration<.9)throw Error('Dog attack cycle too fast');
@@ -191,6 +199,18 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     }
     dogReport.push({breed,actions:11});
    }
+   // Isolated textures remain frame-sized at every supported display size.
+   for(const size of [.75,1,1.3]){
+    apply({size});win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:true});await new Promise(r=>setTimeout(r,120));
+    const isolated=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),box=document.querySelector('.sprite');return {width:img.naturalWidth,count:img.dataset.frameCount,transform:getComputedStyle(img).transform,fits:img.getBoundingClientRect().width<=box.getBoundingClientRect().width+.01};})()`);
+    if(isolated.width!==100||isolated.count!=='8'||isolated.transform!=='none'||!isolated.fits)throw Error('Dog frame isolation failed at size '+size);
+   }
+   win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:true});await new Promise(r=>setTimeout(r,600));
+   const walked=await win.webContents.executeJavaScript(`Number(document.querySelector('.sprite img').dataset.frame)`);if(walked===0)throw Error('Dog walk did not advance');
+   win.webContents.send('state',{...state(),action:'CLIMB_DOWN',carried:false,animate:true});await new Promise(r=>setTimeout(r,500));
+   const descended=await win.webContents.executeJavaScript(`Number(document.querySelector('.sprite img').dataset.frame)`);if(descended>=3)throw Error('Dog ladder did not reverse');
+   win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:false});await new Promise(r=>setTimeout(r,500));
+   const stopped=await win.webContents.executeJavaScript(`document.querySelector('.sprite img').dataset.frame`);if(stopped!=='0')throw Error('Dog stopped walk kept advancing');
    for(const key of ['wander','effects','restAnimation','sleepAnimation','showCombo','grabEnabled','multiMonitor'] as const){
     apply({[key]:false});await new Promise(r=>setTimeout(r,40));
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-option=${key}]').click()`);await new Promise(r=>setTimeout(r,50));

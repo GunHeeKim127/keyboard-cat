@@ -21,3 +21,13 @@ test('multi-monitor preference persists and is independent of quality presets',(
  assert.equal(updateOptions(o,{multiMonitor:'true'}).multiMonitor,false);
  assert.equal(updateOptions(o,{multiMonitor:true}).multiMonitor,true);
 });
+test('name display keeps legacy hover default, persists all modes and rejects invalid settings',()=>{
+ assert.equal(updateOptions(presets.low,{avatarName:'나비'}).nameDisplay,'hover');
+ for(const nameDisplay of ['always','hover','hidden']){
+  const chosen=updateOptions(presets.low,{nameDisplay});assert.equal(chosen.nameDisplay,nameDisplay);assert.equal(chosen.quality,'low');
+  assert.equal(updateOptions(presets.low,JSON.parse(JSON.stringify(chosen))).nameDisplay,nameDisplay);
+  for(const preset of ['low','medium','high'])assert.equal(updateOptions(chosen,{preset}).nameDisplay,nameDisplay);
+  for(const invalid of [true,0,null,'never',{},[]])assert.equal(updateOptions(chosen,{nameDisplay:invalid}).nameDisplay,nameDisplay);
+ }
+ assert.equal(updateOptions(presets.low,Object.create({nameDisplay:'always'})),presets.low);
+});

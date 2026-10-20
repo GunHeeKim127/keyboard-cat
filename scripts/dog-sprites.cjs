@@ -11,10 +11,12 @@ async function poses(file,rows){
 async function cell(pose,scale,right){
  const width=Math.max(1,Math.round(pose.width*scale)),height=Math.max(1,Math.round(pose.height*scale));
  const input=await sharp(pose.rgba,{raw:{width:pose.width,height:pose.height,channels:4}}).resize(width,height,{kernel:'nearest'}).png().toBuffer();
- const left=Math.max(0,Math.min(100-width,Math.round(right===undefined?(100-width)/2:right-width)));
+ const left=Math.max(4,Math.min(96-width,Math.round(right===undefined?(100-width)/2:right-width)));
  return sharp({create:{width:100,height:110,channels:4,background:'#00000000'}}).composite([{input,left,top:104-height}]).png().toBuffer();
 }
 async function pack(breed,action,cells){
+ // Runtime uses independent PNGs: scaled/clipped atlases can sample a neighbor.
+ for(let i=0;i<cells.length;i++)await fs.promises.writeFile(`public/sprites/dog-${breed}-${action}-frame-${i}.png`,cells[i]);
  await sharp({create:{width:100*cells.length,height:110,channels:4,background:'#00000000'}}).composite(cells.map((input,i)=>({input,left:i*100,top:0}))).png().toFile(`public/sprites/dog-${breed}-${action}-atlas.png`);
 }
 async function build(){
@@ -24,12 +26,12 @@ async function build(){
   const scale=Math.min(92/Math.max(...original.map(p=>p.width)),96/Math.max(...original.map(p=>p.height)));
   const cells=await Promise.all(original.map(p=>cell(p,scale)));
   for(const [action,indices]of Object.entries(actions))await pack(breed,action,indices.map(i=>cells[i]));
-  const walk=await poses(`assets/dogs/${breed}-walk-v2-sheet.png`,2),idle=original.slice(0,4);
+  const walk=await poses(`assets/dogs/${breed}-walk-v3-sheet.png`,2),idle=original.slice(0,4);
   const walkScale=Math.min(median(idle.map(p=>p.height))*scale/median(walk.map(p=>p.height)),92/Math.max(...walk.map(p=>p.width)),96/Math.max(...walk.map(p=>p.height)));
   const right=50+median(idle.map(p=>p.width))*scale/2;
   await pack(breed,'WALK',await Promise.all(walk.map(p=>cell(p,walkScale,right))));
  }
- console.log('50 dog atlases ready: complete silhouettes, eight-frame grounded walks');
+ console.log('50 dog atlases and 140 isolated frames ready: complete silhouettes, eight-frame walks');
 }
 if(require.main===module)build().catch(error=>{console.error(error);process.exitCode=1;});
 module.exports={poses};

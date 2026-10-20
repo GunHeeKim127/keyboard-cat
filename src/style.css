@@ -21,3 +21,4 @@
 [data-pet-kind="dog"] .pet.jump{animation-duration:.8s}
 [data-pet-kind="dog"] .pet.fall{animation-duration:.45s}
 [data-pet-kind="dog"] .pet.land{animation-duration:.45s}
+.avatar-settings select{width:100%;margin-top:0;margin-bottom:6px}

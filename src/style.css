@@ -12,3 +12,5 @@
 @keyframes combo-fall{from{transform:translateY(-30px)}to{transform:translateY(0)}}
 
 .input-diagnostics textarea{width:100%;height:190px;box-sizing:border-box;resize:vertical;user-select:text;background:#111826;color:#dce6f6;border:1px solid #34435c;border-radius:8px;padding:8px;font:11px/1.5 monospace}
+
+.pet-picker{border:1px solid #34435c;border-radius:12px;padding:10px;margin-bottom:12px}.pet-tabs{display:flex;gap:6px}.pet-tabs button{flex:1}.pet-tabs .selected{background:#294468;border-color:#8dbbff}.pet-choice{display:flex;gap:12px;align-items:center;margin-top:8px}.pet-choice>div:last-child{flex:1;min-width:0}.pet-choice label{display:block;font-size:11px;margin-bottom:4px}.pet-choice select{width:100%}.pet-preview{width:64px;height:70px;flex-shrink:0;overflow:hidden}.pet-preview img{height:100%;max-width:none;image-rendering:pixelated;display:block}.pet-choice p{font-size:10px}

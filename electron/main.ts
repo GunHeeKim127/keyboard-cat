@@ -5,6 +5,7 @@ import {pathToFileURL} from 'node:url';
 import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
 import {findMacCopies,macLaunchLocation,macLeftovers,runningMacCopies} from './input-diagnostics';
 import {Combo} from './combo';
+import {breedNames,breeds} from './pets';
 import {animationState} from './view-state';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
@@ -18,7 +19,7 @@ let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefine
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='입력 수정 2';
+const buildLabel='강아지 5종 · 마우스 선택';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -43,6 +44,7 @@ function setMoving(value:boolean){finishCarry();moving=value;win.setIgnoreMouseE
 function togglePause(){paused=!paused;combo.reset();effect=0;effectAt=0;lastHit=Date.now();paused?stopInput():startInput();send();refresh();}
 function center(){const a=screen.getPrimaryDisplay().workArea;positionWindow(a.x+a.width-650,a.y+a.height-280);save();}
 function secure(view:BrowserWindow){view.webContents.setWindowOpenHandler(()=>({action:'deny'}));view.webContents.on('will-navigate',e=>e.preventDefault());view.webContents.on('will-frame-navigate',e=>e.preventDefault());view.webContents.on('will-redirect',e=>e.preventDefault());view.webContents.on('will-attach-webview',e=>e.preventDefault());}
+function togglePet(){apply({pet:options.pet==='cat'?'dog':'cat'});}
 function apply(patch:unknown){finishCarry();options=updateOptions(options,patch);enforceMonitor();win.setIgnoreMouseEvents(!moving,{forward:true});save();send();refresh();}
 async function openRemote(){
  if(remote&&!remote.isDestroyed()){remote.show();remote.focus();return;}
@@ -54,6 +56,8 @@ async function openRemote(){
 }
 function refresh(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
  {label:'리모컨 열기',click:()=>{void openRemote();}},
+ {label:options.pet==='cat'?'강아지로 전환':'고양이로 전환',click:togglePet},
+ {label:'강아지 종류',submenu:breeds.map(b=>({label:breedNames[b],type:'radio' as const,checked:options.dogBreed===b,click:()=>apply({pet:'dog',dogBreed:b})}))},
  {label:'화질 / 성능',submenu:(['low','medium','high'] as const).map((p,i)=>({label:['저 · 절전','중 · 균형','고 · 모든 효과'][i],type:'radio' as const,checked:options.quality===p,click:()=>apply({preset:p})}))},
  {label:'다중 모니터 이동',type:'checkbox',checked:options.multiMonitor,click:()=>apply({multiMonitor:!options.multiMonitor})},
  {label:'자동 이동',type:'checkbox',checked:options.wander,click:()=>apply({wander:!options.wander})},
@@ -80,7 +84,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   ipcMain.on('options',(e,p)=>{if(trusted(e)&&e.sender===remote?.webContents)apply(p);});
   ipcMain.on('hover',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'&&!moving&&!carried)win.setIgnoreMouseEvents(!(options.grabEnabled&&on===true),{forward:true});});
   ipcMain.on('carry',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'){if(on===true)startCarry();else finishCarry();}});
-  ipcMain.on('command',(e,c)=>{if(!trusted(e)||typeof c!=='string'||(e.sender===win.webContents&&c!=='lock'))return;switch(c){case 'input-diagnostics':diagnosticReport=inputReport();send();break;case 'copy-diagnostics':diagnosticReport=inputReport();clipboard.writeText(diagnosticReport);send();break;case 'move':setMoving(!moving);break;case 'lock':setMoving(false);save();break;case 'pause':togglePause();break;case 'center':center();break;case 'reconnect':stopInput();startInput();send();break;case 'input-settings':if(process.platform==='darwin')void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent').catch(()=>{hookError='입력 권한 설정을 열지 못했습니다';send();});break;case 'hide':remote?.close();break;case 'quit':app.quit();break;case 'remote':void openRemote();}});
+  ipcMain.on('command',(e,c)=>{if(!trusted(e)||typeof c!=='string'||(e.sender===win.webContents&&c!=='lock'))return;switch(c){case 'input-diagnostics':diagnosticReport=inputReport();send();break;case 'copy-diagnostics':diagnosticReport=inputReport();clipboard.writeText(diagnosticReport);send();break;case 'toggle-pet':togglePet();break;case 'move':setMoving(!moving);break;case 'lock':setMoving(false);save();break;case 'pause':togglePause();break;case 'center':center();break;case 'reconnect':stopInput();startInput();send();break;case 'input-settings':if(process.platform==='darwin')void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent').catch(()=>{hookError='입력 권한 설정을 열지 못했습니다';send();});break;case 'hide':remote?.close();break;case 'quit':app.quit();break;case 'remote':void openRemote();}});
   await win.loadFile(path.join(__dirname,'../dist/index.html'));
   tray=new Tray(nativeImage.createFromPath(path.join(__dirname,'../dist/sprites/IDLE-0.png')).resize({width:32,height:32}));tray.setToolTip('Keyboard Cat · 리모컨');tray.on('double-click',()=>{void openRemote();});refresh();
   win.on('close',e=>{if(!quitting){e.preventDefault();setMoving(false);}});
@@ -163,10 +167,39 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    direction=1;send();await new Promise(r=>setTimeout(r,120));
    const right=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.facing')).transform`);
    if(left!=='matrix(-1, 0, 0, 1, 0, 0)'||right!=='matrix(1, 0, 0, 1, 0, 0)')throw Error('Facing mirror failed');
+   await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=dog]').click()`);await new Promise(r=>setTimeout(r,100));
+   if(options.pet!=='dog')throw Error('Dog selection failed');
+   const dogReport=[];
+   for(const breed of breeds){
+    await remote!.webContents.executeJavaScript(`(()=>{const s=document.querySelector('#dog-breed');s.value=${JSON.stringify(breed)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,100));
+    if(options.dogBreed!==breed||JSON.parse(readFileSync(settingsPath(),'utf8')).options.dogBreed!==breed)throw Error('Dog breed not saved');
+    for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CLIMB_UP','CLIMB_DOWN','CARRY']){
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,35));
+     const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return !!img&&img.complete&&img.naturalWidth>0&&img.getAttribute('src').startsWith('./sprites/dog-'+${JSON.stringify(breed)}+'-');})()`);
+     if(!loaded)throw Error('Dog animation failed: '+breed+' '+action);
+    }
+    if(process.argv.includes('--capture-smoke')){
+     win.webContents.send('state',{...state(),action:'IDLE',carried:false,animate:false});await new Promise(r=>setTimeout(r,50));
+     const dir=path.join(app.getAppPath(),'work');mkdirSync(dir,{recursive:true});writeFileSync(path.join(dir,'dog-'+breed+'.png'),(await win.webContents.capturePage()).toPNG());
+    }
+    dogReport.push({breed,actions:11});
+   }
+   for(const key of ['wander','effects','restAnimation','sleepAnimation','showCombo','grabEnabled','multiMonitor'] as const){
+    apply({[key]:false});await new Promise(r=>setTimeout(r,40));
+    await remote!.webContents.executeJavaScript(`document.querySelector('[data-option=${key}]').click()`);await new Promise(r=>setTimeout(r,50));
+    if(!options[key])throw Error('Existing toggle did not turn on: '+key);
+    await remote!.webContents.executeJavaScript(`document.querySelector('[data-option=${key}]').click()`);await new Promise(r=>setTimeout(r,50));
+    if(options[key])throw Error('Existing toggle did not turn off: '+key);
+   }
+   if(process.argv.includes('--capture-smoke')){const dir=path.join(app.getAppPath(),'work');writeFileSync(path.join(dir,'dog-controller.png'),(await remote!.webContents.capturePage()).toPNG());}
+   await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=cat]').click()`);await new Promise(r=>setTimeout(r,100));
+   if(String(options.pet)!=='cat')throw Error('Cat restore failed');
+   await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=dog]').click()`);await new Promise(r=>setTimeout(r,80));if(String(options.pet)!=='dog'||options.dogBreed!=='husky')throw Error('Mouse selection lost last breed');
+   apply({pet:'cat'});
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

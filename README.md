@@ -1,15 +1,15 @@
-# Keyboard Cat 1.3.4
+# Keyboard Cat 1.3.5
 
-키보드 입력 횟수에 반응하는 Windows/macOS 데스크톱 반려동물입니다. 기존 고양이와 치와와·진돗개·리트리버·시바견·허스키 중 하나를 리모컨에서 마우스로 선택합니다. 현재 수정 빌드 표시는 **강아지 5종 · 마우스 선택**입니다. 사용자 요청에 따라 버전과 설치 파일 이름은 1.3.4를 유지합니다.
+키보드 입력 횟수에 반응하는 Windows/macOS 데스크톱 반려동물입니다. 기존 고양이와 치와와·진돗개·리트리버·시바견·허스키 중 하나를 리모컨에서 마우스로 선택합니다. 현재 수정 빌드 표시는 **강아지 5종 · 마우스 선택**입니다. 강아지 기능을 별도 버전으로 구분하도록 사용자 요청에 따라 1.3.5로 올렸습니다.
 
 ## 설치와 실행
 
-- Windows: `release/Keyboard Cat 1.3.4.exe`는 휴대용, `release/Keyboard Cat Setup 1.3.4.exe`는 설치형입니다. `Start Keyboard Cat.cmd`는 로컬 빌드와 Electron이 있으면 수정된 개발본을 우선 실행하며, 없으면 `release/win-unpacked/Keyboard Cat.exe`를 실행합니다.
-- macOS: Apple Silicon은 `Keyboard-Cat-1.3.4-mac-arm64.dmg`, Intel은 `Keyboard-Cat-1.3.4-mac-x64.dmg`입니다. 앱을 완전히 종료하고 DMG의 앱을 Applications에 교체한 뒤 Finder에서 실행합니다. Node.js/Xcode는 설치 파일 사용자에게 필요하지 않습니다.
-- 같은 1.3.4 안에도 수정 빌드가 있으므로 리모컨의 빌드 표시를 확인하세요. 이전 1.3.4의 표시는 입력 수정 2이며 현재는 강아지 5종 · 마우스 선택입니다.
+- Windows: `release/Keyboard Cat 1.3.5.exe`는 휴대용, `release/Keyboard Cat Setup 1.3.5.exe`는 설치형입니다. `Start Keyboard Cat.cmd`는 로컬 빌드와 Electron이 있으면 수정된 개발본을 우선 실행하며, 없으면 `release/win-unpacked/Keyboard Cat.exe`를 실행합니다.
+- macOS: Apple Silicon은 `Keyboard-Cat-1.3.5-mac-arm64.dmg`, Intel은 `Keyboard-Cat-1.3.5-mac-x64.dmg`입니다. 앱을 완전히 종료하고 DMG의 앱을 Applications에 교체한 뒤 Finder에서 실행합니다. Node.js/Xcode는 설치 파일 사용자에게 필요하지 않습니다.
+- 리모컨 상단의 v1.3.5와 강아지 5종 · 마우스 선택 표시를 확인하세요. 새 설치 파일 검증 후 이전 로컬 설치 파일을 정리하며 사용자 설정과 Git 이력은 보존합니다.
 - Windows 코드는 서명하지 않았고 Mac 테스트 빌드는 임시 서명(ad hoc)입니다. 유료 Developer ID 서명·Apple 공증·새 GitHub Release 게시를 자동 수행하지 않습니다. Mac 권한·설치 안내는 [MACOS.md](MACOS.md), 별도 서명 배포 구성 설명은 [MACOS-DISTRIBUTION.md](MACOS-DISTRIBUTION.md)를 참고하세요.
 
-현재 Mac 수정본: [Apple Silicon DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628/artifacts/12247705993) · [Intel DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628/artifacts/12246868816) · [빌드/검증 기록](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628). Actions 산출물은 보관 기간(14일)이 지나면 만료됩니다. Windows 두 EXE는 프로젝트 release 폴더의 기존 1.3.4 파일을 수정본으로 교체했습니다.
+1.3.5 Mac 설치 파일은 새 빌드 완료 후 이곳에 연결합니다. [Mac 빌드 목록](https://github.com/GunHeeKim127/keyboard-cat/actions/workflows/build-macos.yml). Actions 산출물 보관 기간은 14일입니다.
 
 ## 반려동물과 견종 선택
 
@@ -132,13 +132,20 @@ Git 소스·기존 README·CHANGELOG·GitHub Releases를 대조했습니다. 공
 - 앱별 입력 모니터링 권한 초기화 안내를 정리했습니다. 사용자 설정이나 권한 DB를 앱이 자동 삭제하지 않습니다.
 - 소스 60b8f79. 당시 52개 테스트와 Windows 실행·Mac 두 아키텍처 패키지 검사가 통과했습니다.
 
-### 1.3.4 — 강아지 5종 · 마우스 선택: 현재 빌드
+### 1.3.4 — 강아지 5종 · 마우스 선택: 선행 수정 빌드
 
 - 치와와·진돗개·리트리버·시바견·허스키의 새 투명 픽셀 아트와 24개씩의 포즈, 50개 애니메이션 아틀라스를 추가했습니다.
 - 리모컨에서 고양이/강아지와 견종을 마우스로 선택하고 마지막 선택을 저장합니다. 트레이 선택도 지원합니다.
 - 기존 일곱 기능 스위치, 성능 프리셋, 고양이 모션·콤보·집기·설정·보안 제한을 유지합니다. 견종/반려동물 설정도 검증합니다.
 - Tab 전환 제안은 사용자 요청으로 취소했으며 최종본에는 키보드 전환이나 키 종류 식별 코드를 넣지 않았습니다.
 - 버전과 설치 파일 이름은 사용자 요청대로 1.3.4를 유지합니다. 이번에 README의 전체 버전 이력과 현재 사용법을 통합했습니다.
+
+### 1.3.5 — 2026-10-20: 현재 버전
+
+- 사용자 요청으로 강아지 5종이 포함된 수정본을 1.3.5로 버전 업했습니다.
+- 고양이/강아지·견종 마우스 선택, 모든 기존 스위치·설정·콤보·모션과 입력 보안 동작은 유지합니다. Tab 전환은 없습니다.
+- Windows 휴대용·설치형과 Mac Apple Silicon/Intel용 설치 파일을 새 버전으로 빌드하고 검증 후 이전 로컬 설치 파일을 정리합니다.
+- README의 전체 버전 이력·현재 설치 안내와 검증 결과를 갱신합니다. 사용자 설정·Git 이력·기존 공개 Release는 자동 삭제하지 않습니다.
 
 ## 개발과 검증
 
@@ -163,7 +170,7 @@ node scripts/check-native.cjs
 
 현재 로컬 빌드·양쪽 TypeScript 검사·55개 테스트, Windows 네이티브 등록과 소스 앱/실제 패키지 실행 검사가 통과했습니다. Windows 휴대용/설치형 EXE 무결성과 검증한 앱 payload의 일치도 확인했습니다. 실제 리모컨에서 5종×11개 상태 로딩·선택 저장·고양이 복귀·기존 일곱 토글 각각의 켜기/끄기, 기존 좌표·집기·IPC/웹 보안도 검사합니다. 스모크 검사는 임시 설정을 쓰며 실제 물리 입력을 켜지 않습니다. 별도 lint 명령은 설정되어 있지 않습니다.
 
-실제 Mac 물리 키 입력과 권한 변경, 실제 다중 모니터 조작과 절전 복귀는 사용자 환경 확인이 필요합니다. 합성 키 입력을 물리 키 입력 검증으로 취급하지 않습니다. Mac에서도 컴파일·55개 테스트·두 아키텍처 helper 검사·DMG/ZIP 생성·압축 해제 번들/서명/무결성 검사와 산출물 업로드가 성공했습니다. [최종 Mac 빌드](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628)의 소스 커밋은 8dbc861입니다. 유료 서명·공증·새 Release 게시는 수행하지 않았습니다.
+실제 Mac 물리 키 입력과 권한 변경, 실제 다중 모니터 조작과 절전 복귀는 사용자 환경 확인이 필요합니다. 합성 키 입력을 물리 키 입력 검증으로 취급하지 않습니다. 이전 강아지 수정본에서 Mac 빌드·패키지 검사가 통과했으며, 1.3.5 결과는 새 검증 완료 후 갱신합니다. 유료 서명·공증·새 Release 게시는 수행하지 않습니다.
 
 ## 소스와 이미지 위치
 

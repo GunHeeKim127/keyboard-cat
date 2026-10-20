@@ -7,7 +7,7 @@
 1. 변경된 소스와 `.github/workflows/build-macos.yml`을 저장소에 커밋하고 푸시합니다. 이 작업은 사용자가 직접 합니다.
 2. 이제 `main`에 코드 변경을 푸시하면 **Build macOS**가 자동으로 시작됩니다. 수동 실행은 GitHub 저장소 → **Actions** → **Build macOS** → **Run workflow**에서 가능합니다.
 3. 성공한 작업 아래 **Artifacts → keyboard-cat-macos**를 다운로드하고 압축을 풉니다.
-4. `Keyboard-Cat-1.3.4-mac-arm64.dmg`는 Apple Silicon, `Keyboard-Cat-1.3.4-mac-x64.dmg`는 Intel용입니다. 앱 ZIP도 함께 생성합니다.
+4. `Keyboard-Cat-1.3.5-mac-arm64.dmg`는 Apple Silicon, `Keyboard-Cat-1.3.5-mac-x64.dmg`는 Intel용입니다. 앱 ZIP도 함께 생성합니다.
 5. 일반 사용자에게 배포하려면 해당 DMG를 GitHub Releases에 별도로 첨부합니다. 이 workflow는 릴리스를 게시하지 않고 빌드 산출물만 저장합니다.
 
 빌드 작업은 네이티브 보조 프로그램을 두 아키텍처로 컴파일하고, 분류 로직·공통 테스트·번들 구성·실행 권한·Info.plist를 검사합니다. 물리 키보드와 마우스, TCC 권한, Spaces의 실제 동작을 검증하는 작업은 아닙니다. 빌드 실패 시 Actions 로그를 확인하세요.

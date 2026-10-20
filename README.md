@@ -9,7 +9,9 @@
 - 리모컨 상단의 v1.3.5와 강아지 5종 · 마우스 선택 표시를 확인하세요. 새 설치 파일 검증 후 이전 로컬 설치 파일을 정리하며 사용자 설정과 Git 이력은 보존합니다.
 - Windows 코드는 서명하지 않았고 Mac 테스트 빌드는 임시 서명(ad hoc)입니다. 유료 Developer ID 서명·Apple 공증·새 GitHub Release 게시를 자동 수행하지 않습니다. Mac 권한·설치 안내는 [MACOS.md](MACOS.md), 별도 서명 배포 구성 설명은 [MACOS-DISTRIBUTION.md](MACOS-DISTRIBUTION.md)를 참고하세요.
 
-1.3.5 Mac 설치 파일은 새 빌드 완료 후 이곳에 연결합니다. [Mac 빌드 목록](https://github.com/GunHeeKim127/keyboard-cat/actions/workflows/build-macos.yml). Actions 산출물 보관 기간은 14일입니다.
+1.3.5 Mac 설치 파일: [Apple Silicon DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426/artifacts/12247557103) · [Intel DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426/artifacts/12248010710) · [빌드/검증 기록](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426). Actions 산출물 보관 기간은 14일입니다.
+
+프로젝트는 OneDrive 동기화 경로 밖의 일반 로컬 폴더(예: `C:\Users\<사용자>\projects\keyboard-cat`)에서 작업합니다. 로컬 이전 후 소스·보고서·Git 이력의 복사 무결성, 의존성 재설치, 빌드·테스트와 실제 앱 실행을 검증했습니다. 새 폴더의 release에는 1.3.5 설치 파일 두 개와 현재 체크섬만 두며 이전 설치 파일은 보존하지 않습니다. 앱 사용자 설정은 유지합니다.
 
 ## 반려동물과 견종 선택
 
@@ -73,7 +75,7 @@ Electron contextIsolation·sandbox·Node 접근 차단, IPC 창/최상위 프레
 
 ## 버전별 업데이트 전체 기록
 
-Git 소스·기존 README·CHANGELOG·GitHub Releases를 대조했습니다. 공개 릴리스 태그로 확인되는 것은 1.2.1, 1.3.1, 1.3.2입니다. 1.3.0·1.3.3·1.3.4는 소스와 빌드 기록이 있으나 별도 공개 Release 게시와는 구분합니다. 저장소 최초 소스는 1.2.1이며, 1.2.0은 초기 README에 적힌 변경 내용만 확인됩니다. 그보다 이전 버전의 세부 이력은 이 저장소 기록에서 확인되지 않아 추정해 넣지 않았습니다.
+Git 소스·기존 README·CHANGELOG·GitHub Releases를 대조했습니다. 공개 릴리스 태그로 확인되는 것은 1.2.1, 1.3.1, 1.3.2입니다. 1.3.0·1.3.3·1.3.4·1.3.5는 소스와 빌드 기록이 있으나 별도 공개 Release 게시와는 구분합니다. 저장소 최초 소스는 1.2.1이며, 1.2.0은 초기 README에 적힌 변경 내용만 확인됩니다. 그보다 이전 버전의 세부 이력은 이 저장소 기록에서 확인되지 않아 추정해 넣지 않았습니다.
 
 ### 1.2.0 — 초기 README에서 확인되는 이전 변경
 
@@ -170,7 +172,7 @@ node scripts/check-native.cjs
 
 현재 로컬 빌드·양쪽 TypeScript 검사·55개 테스트, Windows 네이티브 등록과 소스 앱/실제 패키지 실행 검사가 통과했습니다. Windows 휴대용/설치형 EXE 무결성과 검증한 앱 payload의 일치도 확인했습니다. 실제 리모컨에서 5종×11개 상태 로딩·선택 저장·고양이 복귀·기존 일곱 토글 각각의 켜기/끄기, 기존 좌표·집기·IPC/웹 보안도 검사합니다. 스모크 검사는 임시 설정을 쓰며 실제 물리 입력을 켜지 않습니다. 별도 lint 명령은 설정되어 있지 않습니다.
 
-실제 Mac 물리 키 입력과 권한 변경, 실제 다중 모니터 조작과 절전 복귀는 사용자 환경 확인이 필요합니다. 합성 키 입력을 물리 키 입력 검증으로 취급하지 않습니다. 이전 강아지 수정본에서 Mac 빌드·패키지 검사가 통과했으며, 1.3.5 결과는 새 검증 완료 후 갱신합니다. 유료 서명·공증·새 Release 게시는 수행하지 않습니다.
+실제 Mac 물리 키 입력과 권한 변경, 실제 다중 모니터 조작과 절전 복귀는 사용자 환경 확인이 필요합니다. 합성 키 입력을 물리 키 입력 검증으로 취급하지 않습니다. 1.3.5에서도 Mac 컴파일·55개 테스트·두 아키텍처 helper 검사·DMG/ZIP 생성·번들/서명/압축 무결성 검사와 업로드가 성공했습니다. [1.3.5 최종 Mac 빌드](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426)의 소스는 e185566입니다. 새 로컬 폴더에서도 빌드·55개 테스트·네이티브 등록·실제 패키지 실행과 두 EXE 무결성 검사가 통과했습니다. 유료 서명·공증·새 Release 게시는 수행하지 않았습니다.
 
 ## 소스와 이미지 위치
 

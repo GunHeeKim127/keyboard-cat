@@ -138,7 +138,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))`);
    await new Promise(r=>setTimeout(r,100));
    if(await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`))throw Error('Hover name did not hide');
-   const nameControlVisible=await remote!.webContents.executeJavaScript(`(()=>{const b=document.querySelector('[data-name-display=hidden]'),r=b?.getBoundingClientRect();return !!b&&b.textContent==='이름 숨기기'&&r.top>=0&&r.bottom<=innerHeight;})()`);
+   const nameControlVisible=await remote!.webContents.executeJavaScript(`(()=>{const b=document.querySelector('[data-name-display=hidden]'),r=b?.getBoundingClientRect();return !!b&&b.textContent==='숨기기'&&b.getAttribute('aria-label')==='이름 숨기기'&&r.top>=0&&r.bottom<=innerHeight;})()`);
    if(!nameControlVisible)throw Error('Name hide button not visible in initial viewport');
    for(const mode of ['always','hidden','hover'] as const){
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-name-display='+${JSON.stringify(mode)}+']').click()`);await new Promise(r=>setTimeout(r,100));

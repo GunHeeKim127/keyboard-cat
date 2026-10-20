@@ -23,3 +23,4 @@
 [data-pet-kind="dog"] .pet.land{animation-duration:.45s}
 .avatar-settings select{width:100%;margin-top:0;margin-bottom:6px}
 .name-display-label{display:block;font-size:12px;margin-bottom:6px}.name-display-options{gap:6px}.name-display-options button{flex:1;font-size:11px;padding:9px 5px;white-space:nowrap}.name-display-options .selected{background:#294468;border-color:#8dbbff;color:#fff}
+.name-display-options button[data-name-display="hover"]{flex:2.2}

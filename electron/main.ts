@@ -1,33 +1,29 @@
 import {app,BrowserWindow,Tray,Menu,nativeImage,ipcMain,screen,dialog,session,powerMonitor,shell} from 'electron';
-import {spawn,ChildProcess} from 'node:child_process';
+import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
-import {createInterface} from 'node:readline';
 import {Combo} from './combo';
 import {animationState} from './view-state';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
+import {InputMonitor,inputError} from './input-monitor';
 import {isAppResource,isTrustedFrame,readSettings} from './security';
 const distRoot=path.join(__dirname,'../dist'),indexFile=path.join(distRoot,'index.html');
-let win:BrowserWindow,remote:BrowserWindow|undefined,tray:Tray,helper:ChildProcess|undefined;
+let win:BrowserWindow,remote:BrowserWindow|undefined,tray:Tray;
 let options:Options={...presets.low},paused=false,moving=false,quitting=false,hookError='',effect=0,effectAt=0,lastHit=Date.now(),direction=1;
 let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',testProfile);}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {platform:process.platform,options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
+function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state(),serialized=JSON.stringify(value);if(serialized===lastSent)return;lastSent=serialized;stateMessages++;for(const view of [win,remote])if(view&&!view.isDestroyed())view.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
-function stopInput(){const old=helper;helper=undefined;old?.kill();}
-function startInput(){if(paused||suspended||helper||smoke)return;hookError='';
- const child=spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid)],{windowsHide:true,stdio:['ignore','pipe','pipe']});helper=child;
- const fail=()=>{if(helper===child){helper=undefined;if(!hookError)hookError='입력 감지 중단 · 다시 연결을 눌러주세요';send();refresh();}};child.on('error',fail);child.on('exit',fail);
- createInterface({input:child.stderr!}).on('line',line=>{if(helper!==child)return;if(line==='PERMISSION_REQUIRED'){hookError='입력 모니터링 권한 필요 · 더보기에서 설정을 여세요';send();}else if(line==='EVENT_TAP_UNAVAILABLE'){hookError='macOS 입력 감지 시작 실패 · 권한 확인 후 다시 연결';send();}});
- createInterface({input:child.stdout!}).on('line',line=>{if(helper!==child||paused||suspended||!/^[0-9]{1,4}$/.test(line))return;const n=Number(line);if(n<1||n>1000)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}});
-}
+const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}},status=>{hookError=inputError(status);send();refresh();});
+function stopInput(){inputMonitor.stop();}
+function startInput(prompt=true){if(!paused&&!suspended&&!quitting&&!smoke)inputMonitor.start(prompt);}
 function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!pos||quitting||!win||win.isDestroyed())return false;const next=options.multiMonitor?pos:limitToArea(pos,options.size,screen.getPrimaryDisplay().workArea,carried);const [oldX,oldY]=win.getPosition();if(oldX!==next.x||oldY!==next.y)win.setPosition(next.x,next.y);return true;}
 function enforceMonitor(){if(!options.multiMonitor&&!quitting&&win&&!win.isDestroyed()){const [x,y]=win.getPosition();positionWindow(x,y);}}
 function stopCarry(){carried=false;if(carryTimer)clearInterval(carryTimer);carryTimer=undefined;}
@@ -59,7 +55,7 @@ function refresh(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
  ]));}
 if(!app.requestSingleInstanceLock()){app.quit();}else{
  app.on('second-instance',()=>{if(win)void openRemote();});
- app.on('activate',()=>{if(win&&!win.isDestroyed())void openRemote();});
+ app.on('activate',()=>{if(!paused&&!suspended&&!quitting)inputMonitor.retryNow();if(win&&!win.isDestroyed())void openRemote();});
  app.whenReady().then(async()=>{
   const saved=readSettings(settingsPath());
   if(saved.options){options=updateOptions(options,saved.options);const quality=(saved.options as Record<string,unknown>).quality;if(quality==='low'||quality==='medium'||quality==='high'||quality==='custom')options.quality=quality;}
@@ -81,7 +77,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   tray=new Tray(nativeImage.createFromPath(path.join(__dirname,'../dist/sprites/IDLE-0.png')).resize({width:32,height:32}));tray.setToolTip('Keyboard Cat · 리모컨');tray.on('double-click',()=>{void openRemote();});refresh();
   win.on('close',e=>{if(!quitting){e.preventDefault();setMoving(false);}});
   let previousWindowX=win.getPosition()[0];win.on('moved',()=>{const x=win.getPosition()[0];if(moving){direction=facingForDelta(direction,x-previousWindowX);send();if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}previousWindowX=x;});win.showInactive();startInput();
-  powerMonitor.on('suspend',()=>{suspended=true;finishCarry();stopInput();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{suspended=false;lastHit=Date.now();startInput();});
+  powerMonitor.on('suspend',()=>{suspended=true;finishCarry();stopInput();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{suspended=false;lastHit=Date.now();startInput(false);});
   const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&now-lastHit<30000){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+direction*3;if(nx<a.x||nx+320>a.x+a.width){direction*=-1;nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}send();},100);
   app.on('before-quit',()=>{quitting=true;clearInterval(timer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
   if(smoke){try{

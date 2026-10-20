@@ -4,14 +4,14 @@
 
 ## 설치와 실행
 
-- Windows: 이번 수정본은 `release/fix3-name-display/Keyboard Cat 1.3.5.exe`(휴대용), `release/fix3-name-display/Keyboard Cat Setup 1.3.5.exe`(설치형)입니다. 기존 실행 파일 잠금 때문에 별도 폴더에 생성했으며 상위 release의 기존 파일과 구분합니다. `Start Keyboard Cat.cmd`는 로컬 빌드와 Electron이 있으면 수정된 개발본을 우선 실행하며, 없으면 `release/win-unpacked/Keyboard Cat.exe`를 실행합니다.
+- Windows: 이번 수정본은 `release/windows-current/Keyboard Cat 1.3.5.exe`(휴대용), `release/windows-current/Keyboard Cat Setup 1.3.5.exe`(설치형)입니다. 사용 중인 기존 파일을 보존하고 재생성한 현재 Windows 빌드입니다. 상위 release의 예전 파일과 구분합니다. `Start Keyboard Cat.cmd`는 로컬 빌드와 Electron이 있으면 수정된 개발본을 우선 실행하며, 없으면 `release/windows-current/win-unpacked/Keyboard Cat.exe`를 우선 실행하고 이전 빌드 경로를 순서대로 확인합니다.
 - macOS: Apple Silicon은 `Keyboard-Cat-1.3.5-mac-arm64.dmg`, Intel은 `Keyboard-Cat-1.3.5-mac-x64.dmg`입니다. 앱을 완전히 종료하고 DMG의 앱을 Applications에 교체한 뒤 Finder에서 실행합니다. Node.js/Xcode는 설치 파일 사용자에게 필요하지 않습니다.
-- 리모컨 상단의 v1.3.5와 강아지 5종 · 마우스 선택 표시를 확인하세요. 새 설치 파일 검증 후 이전 로컬 설치 파일을 정리하며 사용자 설정과 Git 이력은 보존합니다.
+- 리모컨 상단의 **v1.3.5 · 보행·프레임 수정 3 · 이름 표시 설정**을 확인하세요. 같은 버전의 이전 파일과 구분할 수 있으며 이번 재생성에서는 기존 프로젝트·설정·실행 파일을 삭제하지 않습니다.
 - Windows 코드는 서명하지 않았고 Mac 테스트 빌드는 임시 서명(ad hoc)입니다. 유료 Developer ID 서명·Apple 공증·새 GitHub Release 게시를 자동 수행하지 않습니다. Mac 권한·설치 안내는 [MACOS.md](MACOS.md), 별도 서명 배포 구성 설명은 [MACOS-DISTRIBUTION.md](MACOS-DISTRIBUTION.md)를 참고하세요.
 
-1.3.5 Mac 설치 파일: [Apple Silicon DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426/artifacts/12247557103) · [Intel DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426/artifacts/12248010710) · [빌드/검증 기록](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426). Actions 산출물 보관 기간은 14일입니다.
+현재 수정본 Mac 설치 파일: [Apple Silicon·M1 Pro용 arm64](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39439641219/artifacts/12271974796) · [Intel용 x64](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39439641219/artifacts/12271719940) · [성공한 빌드/검증 기록](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39439641219). 소스는 4355c1a이며 GitHub 로그인이 필요할 수 있습니다. Artifacts의 ZIP을 풀어 DMG를 여세요. 보관 기간은 14일이며 위 파일은 2026-11-03 UTC에 만료 예정입니다. 기존 Releases나 이전 작업의 파일이 최신 수정본이라는 뜻은 아닙니다.
 
-프로젝트는 OneDrive 동기화 경로 밖의 일반 로컬 폴더(예: `C:\Users\<사용자>\projects\keyboard-cat`)에서 작업합니다. 로컬 이전 후 소스·보고서·Git 이력의 복사 무결성, 의존성 재설치, 빌드·테스트와 실제 앱 실행을 검증했습니다. 새 폴더의 release에는 1.3.5 설치 파일 두 개와 현재 체크섬만 두며 이전 설치 파일은 보존하지 않습니다. 앱 사용자 설정은 유지합니다.
+설치 앱, 소스 프로젝트, 사용자 설정은 별개입니다. 앱 업데이트를 위해 프로젝트 폴더나 다른 프로그램의 데이터를 지울 필요는 없습니다.
 
 ## 1.3.5 강아지 모션 수정
 
@@ -51,7 +51,7 @@
 | 중 | 100% | 8 FPS | 끔 | 켬 | 끔 | 켬 |
 | 고 | 130% | 12 FPS | 켬 | 켬 | 켬 | 켬 |
 
-- 기능은 개별 조정할 수 있으며 성능 관련 값을 바꾸면 사용자 설정으로 표시됩니다. 수면 반복은 별도로 켤 수 있고 2.5 FPS로 재생합니다. 꺼도 정지된 수면 자세는 표시합니다.
+- 기능은 개별 조정할 수 있으며 성능 관련 값을 바꾸면 사용자 설정으로 표시됩니다. 수면 반복은 별도로 켤 수 있습니다. 고양이는 2.5 FPS, 강아지는 한 포즈를 최소 1.2초씩 유지합니다. 꺼도 정지된 수면 자세는 표시합니다.
 - 다중 모니터 이동을 끄면 주 모니터로 제한합니다. 다시 켜면 다른 모니터로 이동할 수 있으며 여러 마리로 복제하는 기능은 아닙니다.
 - 마우스로 집어 들기를 켜면 반려동물 영역만 클릭을 받고 주변 투명 영역은 통과합니다. 끄면 클릭을 통과시킵니다. 위치 조정 모드에서는 드래그로 이동합니다.
 - 아바타 이름은 최대 20자이며 고양이와 강아지가 공유합니다. 리모컨의 **이름 표시**에서 **항상 표시 / 마우스를 올릴 때만 표시 / 숨기기**를 선택합니다. 기본값은 기존처럼 마우스를 올릴 때만 표시이며, 표시 방식은 재실행·성능 프리셋 변경 후에도 유지됩니다. 숨기기를 선택해도 이름 자체는 삭제되지 않습니다.
@@ -79,11 +79,44 @@ Windows는 전역 키보드 훅 대신 Raw Input 알림을 받고, macOS는 읽�
 
 Electron contextIsolation·sandbox·Node 접근 차단, IPC 창/최상위 프레임/문서/자료형 검증, 로컬 리소스 허용 목록, CSP, 웹 권한·다운로드·탐색 차단을 유지합니다. 설정 파일은 최대 64KiB만 읽고 이름은 HTML이 아닌 텍스트로 표시합니다. 견종·반려동물 값도 허용 목록으로 검증합니다. 2026-10-20 npm 감사에서 9개 취약점을 의존성 수정 후 0개로 줄였으며 이번 기능 추가에는 의존성 변경이 없습니다. npm에 앱을 게시하지 않았습니다.
 
-## macOS 입력 권한
+## Mac 설치·실행·업그레이드 빠른 매뉴얼
 
-시스템 설정 → 개인정보 보호 및 보안 → 입력 모니터링에서 현재 설치본을 허용합니다. 권한 부족이나 이벤트 탭 오류 후에는 5초 간격으로 보조 프로그램을 다시 연결하며, 자동 재연결에서 권한 요청 팝업을 반복하지 않습니다. 준비 신호가 와야 준비 완료로 표시합니다. macOS가 요구하면 앱을 완전히 종료하고 다시 실행하세요.
+자세한 화면 순서·재설치·진단은 [MACOS.md](MACOS.md)에 있습니다. 일반 사용자는 Node.js/Xcode/npm 설치나 터미널 설정 없이 설치본을 사용합니다.
 
-앱 재설치가 macOS의 기존 권한 기록까지 지우는 것은 아닙니다. 입력 진단으로 실행 위치와 실패 상태를 먼저 확인하고, 앱별 권한 기록 초기화 절차는 [MACOS.md](MACOS.md)를 참고하세요. 실제 사용자 Mac에서 보고한 권한 거부 원인은 아직 확정되지 않았으며 빌드 성공과 실제 물리 입력 성공을 구분합니다.
+| Mac 종류 | 받을 파일 |
+| --- | --- |
+| M1·**M1 Pro**·M1 Max·M1 Ultra 및 M2/M3/M4/M5 계열 | **Apple Silicon / arm64.dmg** |
+| Intel 프로세서 | **Intel / x64.dmg** |
+
+### 처음 설치하고 여는 순서
+
+1. 위 Mac 링크에서 내 CPU용 Artifacts ZIP을 받아 압축을 풀고 DMG를 엽니다.
+2. **Keyboard Cat.app을 응용 프로그램(Applications)으로 드래그**합니다. 최종 설치 경로는 `/Applications/Keyboard Cat.app`입니다.
+3. 복사가 끝나면 Finder에서 DMG를 꺼냅니다. **Finder → 응용 프로그램 → Keyboard Cat.app**을 더블클릭해 실행합니다. DMG 안의 앱이나 예전 다운로드 복사본을 열지 않습니다.
+4. 개발자 확인 알림이 나오면 다운로드 출처·앱 이름을 확인하고 **시스템 설정 → 개인정보 보호 및 보안 → 확인 없이 열기(Open Anyway)**에서 이 앱의 실행 예외를 선택합니다. [Apple의 앱 열기 안내](https://support.apple.com/102445)
+5. 리모컨의 **입력 모니터링 권한 설정** → **개인정보 보호 및 보안 → 입력 모니터링**에서 **현재 Applications의 Keyboard Cat**을 허용합니다. 목록에 없으면 +로 앱을 추가합니다. 이 권한과 앱 실행 허용은 서로 다릅니다. [Apple 입력 모니터링 안내](https://support.apple.com/guide/mac-help/mchl4cedafb6/mac)
+6. 리모컨의 **앱 종료**나 메뉴 막대 아이콘 메뉴의 **종료**로 완전히 종료한 뒤 같은 Finder 경로에서 다시 실행합니다. 리모컨 숨기기는 종료가 아닙니다. 준비 완료와 일반 편집기에서 실제 타이핑을 확인합니다.
+7. 리모컨은 메뉴 막대 아이콘의 **리모컨 열기**로 다시 엽니다. 이름은 **항상 표시 / 마우스를 올릴 때만 표시 / 숨기기**에서 고를 수 있습니다.
+
+### 새 버전을 받았을 때
+
+**보통은 전부 지우지 않습니다.** 기존 앱 종료 → 새 DMG의 앱을 Applications에 **대치/교체** → DMG 꺼내기 → Finder의 Applications에서 실행 → 버전과 수정 빌드 문구 확인 순서입니다. 이름·견종·표시 옵션은 유지됩니다. 입력이 정상이면 터미널 명령 없이 끝납니다. 정상 동작을 확인한 뒤 필요 없는 이전 다운로드만 정리합니다.
+
+### 권한을 켰는데도 안 될 때 실행할 명령
+
+먼저 리모컨의 **입력 진단 · 이전 앱 확인**에서 실제 실행 위치가 Applications인지 확인합니다. 입력 모니터링의 Keyboard Cat 항목만 제거하고 현재 설치본을 다시 추가·허용한 뒤 완전히 종료·재실행합니다. 그래도 실패할 때만 **앱을 종료한 상태에서** Mac의 터미널에 아래 전체를 **한 줄로** 넣습니다.
+
+```sh
+tccutil reset ListenEvent local.keyboardcat.pet
+```
+
+`local.keyboardcat.pet`만 따로 실행하는 것이 아닙니다. 이는 앱의 입력 권한을 **초기화**하며 허용하지는 않습니다. 이어서 **Finder → 응용 프로그램 → Keyboard Cat.app** 실행 → 입력 모니터링에서 현재 앱 허용 → 앱 완전 종료·재실행 → 실제 입력 확인을 진행합니다. 이름·견종 설정은 이 명령으로 삭제되지 않습니다. 오류가 나오면 메시지를 확인하고 전체 앱 권한 초기화나 권한 DB 삭제로 확대하지 않습니다. [Apple의 앱별 권한 초기화 설명](https://developer.apple.com/documentation/xcode/resetting-access-to-protected-resources-in-macos)
+
+### 완전히 지우고 다시 설치하려는 경우
+
+앱을 완전히 종료하고 Applications의 **Keyboard Cat.app만** 휴지통으로 옮깁니다. 이름·견종·위치까지 초기화하려는 경우에만 Finder의 **이동 → 폴더로 이동(⇧⌘G)**에서 `~/Library/Application Support/keyboard-cat`을 찾아 삭제 대신 별도 폴더로 **백업 이동**하세요. 존재할 수 있는 앱 전용 캐시·환경설정·이전 앱 복사본과 원상 복구 방법은 [MACOS.md의 새로 설치 절차](MACOS.md#7-완전히-새로-설치하고-싶을-때-백업-후-앱-전용-데이터만)를 따릅니다. 상위 Library 폴더나 프로젝트 파일은 지우지 않습니다.
+
+새 파일 다운로드 → Applications 설치 → Finder 실행 → 입력 권한 허용 → 완전 종료·재실행으로 확인합니다. 앱·설정을 지워도 macOS 권한 기록은 따로 남을 수 있습니다. 권한 문제가 남을 때만 위 tccutil 명령을 적용합니다. 재설치가 모든 Mac 권한 오류를 해결한다고 보장하지 않으며 실제 물리 입력 확인이 필요합니다.
 
 ## 버전별 업데이트 전체 기록
 
@@ -157,6 +190,10 @@ Git 소스·기존 README·CHANGELOG·GitHub Releases를 대조했습니다. 공
 ### 1.3.5 — 2026-10-20: 현재 버전
 
 - 사용자 요청으로 강아지 5종이 포함된 수정본을 1.3.5로 버전 업했습니다.
+- 걷기 8프레임, 앞·뒷다리 포즈 보정, 짧은 모션 속도와 콤보 구간 연장을 반영했습니다.
+- 강아지의 모든 모션·미리보기를 140개 독립 PNG로 표시하고 투명 여백을 확보해 옆 포즈 비침을 방지했습니다.
+- 이름 표시를 항상/마우스 오버/숨기기로 선택·저장하고 프리셋 변경 후에도 보존합니다.
+- Mac CPU별 다운로드, Finder 실행, 입력 모니터링 승인, 일반 업그레이드, 선택적 설정 백업·재설치, 앱 전용 tccutil 초기화와 읽기 전용 진단 매뉴얼을 추가했습니다.
 - 고양이/강아지·견종 마우스 선택, 모든 기존 스위치·설정·콤보·모션과 입력 보안 동작은 유지합니다. Tab 전환은 없습니다.
 - Windows 휴대용·설치형과 Mac Apple Silicon/Intel용 설치 파일을 새 버전으로 빌드하고 검증 후 이전 로컬 설치 파일을 정리합니다.
 - README의 전체 버전 이력·현재 설치 안내와 검증 결과를 갱신합니다. 사용자 설정·Git 이력·기존 공개 Release는 자동 삭제하지 않습니다.
@@ -175,6 +212,12 @@ npm run dist:win
 npm run dist:mac
 ```
 
+현재 Windows 출력 폴더를 그대로 재현하려면 빌드 후 다음 명령을 사용합니다. 기존 파일 정리 스크립트는 호출하지 않습니다.
+
+```sh
+npx --no-install electron-builder --win nsis portable --publish never --config.directories.output=release/windows-current
+```
+
 `npm run dev`는 빌드 후 실행하며 `npm run sprites`는 고양이 프레임과 강아지 아틀라스를 다시 만듭니다. 새 이미지 생성은 빌드에 포함되지 않으며 저장된 원본 PNG만 사용합니다. 설치 파일 생성은 --publish never이며 Git 커밋·푸시를 자동 수행하지 않습니다.
 
 ```sh
@@ -184,7 +227,7 @@ node scripts/check-native.cjs
 
 현재 모션 수정본의 로컬 빌드·양쪽 TypeScript 검사·60개 테스트, Windows 네이티브 등록과 소스 앱/실제 패키지 실행 검사가 통과했습니다. Windows 휴대용/설치형 EXE 무결성과 검증한 앱 payload의 일치도 확인했습니다. 실제 리모컨에서 5종×11개 상태 로딩·선택 저장·고양이 복귀·기존 일곱 토글 각각의 켜기/끄기, 기존 좌표·집기·IPC/웹 보안도 검사합니다. 스모크 검사는 임시 설정을 쓰며 실제 물리 입력을 켜지 않습니다. 별도 lint 명령은 설정되어 있지 않습니다.
 
-실제 Mac 물리 키 입력과 권한 변경, 실제 다중 모니터 조작과 절전 복귀는 사용자 환경 확인이 필요합니다. 합성 키 입력을 물리 키 입력 검증으로 취급하지 않습니다. 이번 모션 수정 이전 1.3.5에서 Mac 컴파일·55개 테스트·두 아키텍처 helper 검사·DMG/ZIP 생성·번들/서명/압축 무결성 검사와 업로드가 성공했습니다. [모션 수정 이전 1.3.5 Mac 빌드](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39386230426)의 소스는 e185566입니다. 이번 강아지 모션 수정의 Mac 실행·패키징은 아직 확인하지 않았습니다. 이전 로컬 폴더 검증에서는 빌드·55개 테스트·네이티브 등록·실제 패키지 실행과 두 EXE 무결성 검사가 통과했습니다. 유료 서명·공증·새 Release 게시는 수행하지 않았습니다.
+Mac에서는 4355c1a의 [최신 성공한 빌드](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39439641219)에서 컴파일·60개 테스트·두 아키텍처 helper·DMG/ZIP·번들/압축 검증과 산출물 업로드가 성공했습니다. 실제 Mac 물리 키 입력과 TCC 승인, 실제 다중 모니터·Spaces·절전 복귀는 사용자 기기에서 확인해야 합니다. 합성 입력을 물리 키 테스트로 취급하지 않습니다. 유료 서명·공증·새 Release 게시는 하지 않았습니다.
 
 ## 소스와 이미지 위치
 
@@ -193,7 +236,7 @@ node scripts/check-native.cjs
 - `native/`: Windows Raw Input과 Mac 읽기 전용 횟수 감지.
 - `scripts/`: 빌드·고양이 프레임 추출·강아지 아틀라스 패킹·패키지 검증.
 - `tests/`: 콤보·좌표·옵션·보안·입력 수명·배포와 강아지 리소스 회귀 검사.
-- `public/sprites/`: 기존 고양이 아틀라스 9개와 carry.png, 새 dog-<견종>-<상태>-atlas.png 50개. 런타임 파일은 동일한 평면 리소스 허용 목록 안에 있습니다.
+- `public/sprites/`: 기존 고양이 아틀라스 9개와 carry.png, 강아지 아틀라스 50개와 런타임용 dog-<견종>-<상태>-frame-<번호>.png 140개. 런타임 파일은 동일한 평면 리소스 허용 목록 안에 있습니다.
 - `assets/dogs/`: 새로 생성한 다섯 원본 시트. 내장 imagegen 도구를 사용했으며 프롬프트와 4×6 셀 구성은 [GENERATION.md](assets/dogs/GENERATION.md)에 보관합니다. 별도 유료 API 호출이나 외부 스프라이트 다운로드는 하지 않았습니다.
 - `CHANGELOG.md`: 최근 수정 빌드별 상세 변경 기록.
 

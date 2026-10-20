@@ -24,7 +24,8 @@ static void flush_count(CFRunLoopTimerRef timer,void *context){
  (void)timer;(void)context;
  if(kill(parent_pid,0)==-1&&errno==ESRCH){CFRunLoopStop(CFRunLoopGetCurrent());return;}
  if(++ticks%20==0){
-  if(!CGPreflightListenEventAccess()){fputs("PERMISSION_REQUIRED\n",stderr);fflush(stderr);exit_status=77;CFRunLoopStop(CFRunLoopGetCurrent());return;}
+  // Preflight is advisory. Keep a working OS-authorized tap alive even when
+  // the permission query disagrees; revoked/disabled taps are handled below.
   if(!CFMachPortIsValid(tap)){fputs("EVENT_TAP_UNAVAILABLE\n",stderr);fflush(stderr);exit_status=78;CFRunLoopStop(CFRunLoopGetCurrent());return;}
   if(!CGEventTapIsEnabled(tap)){
    CGEventTapEnable(tap,true);
@@ -41,11 +42,16 @@ int main(int argc,char **argv){
  const bool no_prompt=argc==3&&!strcmp(argv[2],"--no-prompt");
  if(argc!=2&&!no_prompt)return 2;char *end=NULL;errno=0;long parent=strtol(argv[1],&end,10);if(!end||*end||errno==ERANGE||parent<=1||(long)(pid_t)parent!=parent)return 2;parent_pid=(pid_t)parent;
  signal(SIGPIPE,SIG_IGN);
- if(!CGPreflightListenEventAccess()){
-  fputs("PERMISSION_REQUIRED\n",stderr);fflush(stderr);
-  if(no_prompt||!CGRequestListenEventAccess())return 77;
- }
+ // Let the OS enforce access on the actual listen-only tap. A preflight
+ // disagreement must not prevent an otherwise permitted connection.
  tap=CGEventTapCreate(kCGSessionEventTap,kCGTailAppendEventTap,kCGEventTapOptionListenOnly,CGEventMaskBit(kCGEventKeyDown),count_event,NULL);
+ if(!tap&&!CGPreflightListenEventAccess()){
+  fputs("PERMISSION_REQUIRED\n",stderr);fflush(stderr);
+  if(no_prompt)return 77;
+  CGRequestListenEventAccess();
+  tap=CGEventTapCreate(kCGSessionEventTap,kCGTailAppendEventTap,kCGEventTapOptionListenOnly,CGEventMaskBit(kCGEventKeyDown),count_event,NULL);
+  if(!tap&&!CGPreflightListenEventAccess())return 77;
+ }
  if(!tap){fputs("EVENT_TAP_UNAVAILABLE\n",stderr);return 78;}
  CFRunLoopSourceRef source=CFMachPortCreateRunLoopSource(kCFAllocatorDefault,tap,0);
  if(!source){fputs("EVENT_TAP_UNAVAILABLE\n",stderr);CFRelease(tap);return 78;}

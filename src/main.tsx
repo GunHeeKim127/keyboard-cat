@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './style.css';
 type Options={avatarName:string;quality:string;size:number;fps:number;wander:boolean;effects:boolean;restAnimation:boolean;sleepAnimation:boolean;showCombo:boolean;grabEnabled:boolean;multiMonitor:boolean};
-type State={platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
+type State={version:string;platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
 declare global {interface Window{cat:{snapshot:()=>Promise<State>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
 function AvatarName({name}:{name:string}){
  const [draft,setDraft]=useState(name);
@@ -13,7 +13,7 @@ function AvatarName({name}:{name:string}){
 const frames:Record<string,number>={IDLE:8,WALK:9,JUMP:7,DASH:6,ATTACK:5,SLEEP:5,FALL:4,LAND:3,CLIMB_UP:4,CLIMB_DOWN:4};
 function Controller({s}:{s:State}){
  const o=s.options,labels:Record<string,string>={low:'저 · 절전',medium:'중 · 균형',high:'고 · 풍성하게',custom:'사용자 설정'};
- return <div className="controller"><header><div className="eyebrow">DESKTOP COMPANION</div><h1>Keyboard Cat <span>리모컨</span></h1><p>내 PC에 맞게 가볍게, 또는 풍성하게.</p></header>
+ return <div className="controller"><header><div className="eyebrow">DESKTOP COMPANION</div><h1>Keyboard Cat <span>리모컨</span></h1><p>내 PC에 맞게 가볍게, 또는 풍성하게. <span data-app-version>v{s.version}</span></p></header>
   <AvatarName name={o.avatarName}/>
   <div className="section-label">화질 / 성능 <span>{labels[o.quality]}</span></div>
   <div className="presets">{['low','medium','high'].map((p,i)=><button data-preset={p} className={o.quality===p?'selected':''} key={p} onClick={()=>window.cat.options({preset:p})}><b>{['저','중','고'][i]}</b><small>{['절전 · 5 FPS','균형 · 8 FPS','효과 · 12 FPS'][i]}</small></button>)}</div>
@@ -29,7 +29,7 @@ function Controller({s}:{s:State}){
 }
 function App(){
  const [hovered,setHovered]=useState(false);
- const [s,set]=useState<State>({platform:'',inputReady:false,options:{avatarName:'고양이',quality:'low',size:.75,fps:5,wander:false,effects:false,restAnimation:false,sleepAnimation:false,showCombo:true,grabEnabled:true,multiMonitor:true},facing:1,combo:0,paused:false,moving:false,carried:false,landing:false,hookError:'',effect:0,effectAt:0,lastHit:0,action:'IDLE',animate:false});
+ const [s,set]=useState<State>({version:'',platform:'',inputReady:false,options:{avatarName:'고양이',quality:'low',size:.75,fps:5,wander:false,effects:false,restAnimation:false,sleepAnimation:false,showCombo:true,grabEnabled:true,multiMonitor:true},facing:1,combo:0,paused:false,moving:false,carried:false,landing:false,hookError:'',effect:0,effectAt:0,lastHit:0,action:'IDLE',animate:false});
  useEffect(()=>{let active=true;const off=window.cat.onState(v=>{if(active)set(v);});window.cat.snapshot().then(v=>{if(active&&v)set(v);});return()=>{active=false;off();};},[]);
  if(new URLSearchParams(location.search).has('panel'))return <Controller s={s}/>;
  const o=s.options,n=frames[s.action]||frames.IDLE,atlas=s.action.startsWith('CLIMB_')?'CLIMB':s.action,duration=n/(s.action==='SLEEP'?2.5:o.fps);

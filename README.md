@@ -9,6 +9,8 @@
 - 같은 1.3.4 안에도 수정 빌드가 있으므로 리모컨의 빌드 표시를 확인하세요. 이전 1.3.4의 표시는 입력 수정 2이며 현재는 강아지 5종 · 마우스 선택입니다.
 - Windows 코드는 서명하지 않았고 Mac 테스트 빌드는 임시 서명(ad hoc)입니다. 유료 Developer ID 서명·Apple 공증·새 GitHub Release 게시를 자동 수행하지 않습니다. Mac 권한·설치 안내는 [MACOS.md](MACOS.md), 별도 서명 배포 구성 설명은 [MACOS-DISTRIBUTION.md](MACOS-DISTRIBUTION.md)를 참고하세요.
 
+현재 Mac 수정본: [Apple Silicon DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628/artifacts/12247705993) · [Intel DMG](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628/artifacts/12246868816) · [빌드/검증 기록](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628). Actions 산출물은 보관 기간(14일)이 지나면 만료됩니다. Windows 두 EXE는 프로젝트 release 폴더의 기존 1.3.4 파일을 수정본으로 교체했습니다.
+
 ## 반려동물과 견종 선택
 
 리모컨의 고양이/강아지 버튼을 클릭합니다. 강아지를 선택하면 견종 메뉴가 나타나며 마지막으로 선택한 견종은 고양이로 바꾸거나 앱을 다시 실행해도 저장됩니다. 화질 프리셋을 바꿔도 반려동물·견종·이름·다중 모니터 선택은 유지합니다. 트레이에도 직접 선택 메뉴가 있습니다.
@@ -159,9 +161,9 @@ npx electron . --smoke-test
 node scripts/check-native.cjs
 ```
 
-현재 로컬 빌드·양쪽 TypeScript 검사·55개 테스트, Windows 네이티브 등록과 소스 앱 실행 검사가 통과했습니다. 실제 리모컨에서 5종×11개 상태 로딩·선택 저장·고양이 복귀·기존 일곱 토글 각각의 켜기/끄기, 기존 좌표·집기·IPC/웹 보안도 검사합니다. 스모크 검사는 임시 설정을 쓰며 실제 물리 입력을 켜지 않습니다. 별도 lint 명령은 설정되어 있지 않습니다.
+현재 로컬 빌드·양쪽 TypeScript 검사·55개 테스트, Windows 네이티브 등록과 소스 앱/실제 패키지 실행 검사가 통과했습니다. Windows 휴대용/설치형 EXE 무결성과 검증한 앱 payload의 일치도 확인했습니다. 실제 리모컨에서 5종×11개 상태 로딩·선택 저장·고양이 복귀·기존 일곱 토글 각각의 켜기/끄기, 기존 좌표·집기·IPC/웹 보안도 검사합니다. 스모크 검사는 임시 설정을 쓰며 실제 물리 입력을 켜지 않습니다. 별도 lint 명령은 설정되어 있지 않습니다.
 
-실제 Mac 물리 키 입력과 권한 변경, 실제 다중 모니터 조작과 절전 복귀는 사용자 환경 확인이 필요합니다. 합성 키 입력을 물리 키 입력 검증으로 취급하지 않습니다. 설치 파일·Mac 빌드의 최종 결과는 검증 완료 후 이 문서에 추가합니다.
+실제 Mac 물리 키 입력과 권한 변경, 실제 다중 모니터 조작과 절전 복귀는 사용자 환경 확인이 필요합니다. 합성 키 입력을 물리 키 입력 검증으로 취급하지 않습니다. Mac에서도 컴파일·55개 테스트·두 아키텍처 helper 검사·DMG/ZIP 생성·압축 해제 번들/서명/무결성 검사와 산출물 업로드가 성공했습니다. [최종 Mac 빌드](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39385363628)의 소스 커밋은 8dbc861입니다. 유료 서명·공증·새 Release 게시는 수행하지 않았습니다.
 
 ## 소스와 이미지 위치
 

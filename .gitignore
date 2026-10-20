@@ -144,3 +144,7 @@ dist
 /native/*.exe
 /native/KeyCounter-mac
 /native/.build/
+
+/work/
+
+/outputs/

@@ -13,3 +13,11 @@ test('avatar names reject invalid types, remove controls and limit Unicode lengt
  assert.equal(updateOptions(presets.low,{avatarName:'나\u202e비\u0000'}).avatarName,'나비');
  assert.equal(updateOptions(presets.low,{avatarName:'🐈'.repeat(21)}).avatarName,'🐈'.repeat(20));
 });
+test('multi-monitor preference persists and is independent of quality presets',()=>{
+ const o=updateOptions(presets.low,{multiMonitor:false});
+ assert.equal(o.multiMonitor,false);assert.equal(o.quality,'low');
+ assert.equal(updateOptions(o,{preset:'high'}).multiMonitor,false);
+ assert.equal(updateOptions(presets.low,JSON.parse(JSON.stringify(o))).multiMonitor,false);
+ assert.equal(updateOptions(o,{multiMonitor:'true'}).multiMonitor,false);
+ assert.equal(updateOptions(o,{multiMonitor:true}).multiMonitor,true);
+});

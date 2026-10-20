@@ -19,7 +19,7 @@ let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefine
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='강아지 프레임·속도 수정';
+const buildLabel='강아지 보행 수정 2';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];

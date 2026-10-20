@@ -1,7 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './style.css';
-import {DogBreed,PetKind,breeds,breedNames,breedTraits,spriteFor} from '../electron/pets';
+import {DogBreed,PetKind,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
 type Options={pet:PetKind;dogBreed:DogBreed;avatarName:string;quality:string;size:number;fps:number;wander:boolean;effects:boolean;restAnimation:boolean;sleepAnimation:boolean;showCombo:boolean;grabEnabled:boolean;multiMonitor:boolean};
 type State={buildLabel:string;diagnosticReport:string;version:string;platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
 declare global {interface Window{cat:{snapshot:()=>Promise<State>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
@@ -37,7 +37,7 @@ function App(){
  const [s,set]=useState<State>({buildLabel:'',diagnosticReport:'',version:'',platform:'',inputReady:false,options:{pet:'cat',dogBreed:'chihuahua',avatarName:'고양이',quality:'low',size:.75,fps:5,wander:false,effects:false,restAnimation:false,sleepAnimation:false,showCombo:true,grabEnabled:true,multiMonitor:true},facing:1,combo:0,paused:false,moving:false,carried:false,landing:false,hookError:'',effect:0,effectAt:0,lastHit:0,action:'IDLE',animate:false});
  useEffect(()=>{let active=true;const off=window.cat.onState(v=>{if(active)set(v);});window.cat.snapshot().then(v=>{if(active&&v)set(v);});return()=>{active=false;off();};},[]);
  if(new URLSearchParams(location.search).has('panel'))return <Controller s={s}/>;
- const o=s.options,visualAction=s.carried&&o.pet==='dog'?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction),n=visual.frames,duration=n/(s.action==='SLEEP'?2.5:o.fps),spriteKey=o.pet+'-'+o.dogBreed+'-'+visualAction+'-'+s.effectAt;
+ const o=s.options,visualAction=s.carried&&o.pet==='dog'?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction),n=visual.frames,duration=spriteDuration(o.pet,visualAction,n,o.fps),spriteKey=o.pet+'-'+o.dogBreed+'-'+visualAction+'-'+s.effectAt;
  return <main data-pet-kind={o.pet} data-dog-breed={o.dogBreed} className={`${s.moving?'moving':''} ${!o.effects?'low-power':''} effect-${s.effect}`}>
   {s.moving&&<div className="toolbar"><span>드래그하여 이동</span><button onClick={()=>window.cat.lock()}>위치 고정</button></div>}
   {o.showCombo&&s.combo>0&&<div className="combo"><strong>{s.combo}</strong><span>COMBO</span><div key={s.lastHit} className="meter" style={{animationDelay:`-${Math.min(1500,Date.now()-s.lastHit)}ms`}}/></div>}
@@ -47,7 +47,7 @@ function App(){
    onPointerDown={e=>{if(e.button===0&&o.grabEnabled&&!s.moving){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);window.cat.carry(true);}}}
    onPointerUp={e=>{window.cat.carry(false);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
    onPointerCancel={()=>window.cat.carry(false)} onLostPointerCapture={()=>window.cat.carry(false)}>
-   <div className="facing" style={{transform:`scaleX(${s.facing})`}}>{s.carried&&o.pet==='cat'?<img className="carry-image" src="./sprites/carry.png" draggable={false}/>:<div className="sprite"><img key={spriteKey} src={visual.src} draggable={false} style={{width:`${n*100}%`,animation:(s.carried?o.pet==='dog'&&!s.paused:s.animate)?`frames ${duration}s steps(${n}) infinite ${s.action==='CLIMB_DOWN'?'reverse':'normal'}`:'none'}}/></div>}</div>
+   <div className="facing" style={{transform:`scaleX(${s.facing})`}}>{s.carried&&o.pet==='cat'?<img className="carry-image" src="./sprites/carry.png" draggable={false}/>:<div className="sprite"><img key={spriteKey} src={visual.src} draggable={false} style={{width:`${n*100}%`,animation:(n>1)&&(s.carried?o.pet==='dog'&&!s.paused:s.animate)?`frames ${duration}s steps(${n}) infinite ${s.action==='CLIMB_DOWN'?'reverse':'normal'}`:'none'}}/></div>}</div>
    {hovered&&<div className="avatar-name" role="tooltip">{o.avatarName}</div>}
   </div>
   {(s.paused||s.hookError)&&<div className="status">{s.paused?'쉬는 중 · 감지 꺼짐':s.hookError}</div>}

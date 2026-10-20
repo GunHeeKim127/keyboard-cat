@@ -2,7 +2,7 @@
 
 Generated with the built-in imagegen tool, transparent-background mode, on 2026-10-20. No external sprite packs were downloaded. Original cat sprites were preserved.
 
-Sources: chihuahua-sheet.png, jindo-sheet.png, retriever-sheet.png, shiba-sheet.png, husky-sheet.png. Each sheet is 1024×1536, with 24 poses in a 4×6 grid. scripts/dog-sprites.cjs slices and packs these poses into flat public/sprites/dog-<breed>-<action>-atlas.png files.
+Sources: chihuahua-sheet.png, jindo-sheet.png, retriever-sheet.png, shiba-sheet.png, husky-sheet.png. Each sheet is 1024×1536, with 24 poses in a 4×6 grid. scripts/dog-sprites.cjs extracts complete connected silhouettes and packs these poses into flat public/sprites/dog-<breed>-<action>-atlas.png files.
 
 ## Common prompt
 
@@ -17,3 +17,9 @@ Use case: illustration-story. Asset: production pixel-art desktop pet sprite she
 - Siberian Husky: charcoal-gray and white coat, symmetrical face mask, blue eyes, upright ears and fluffy tail; energetic stride, powerful dash and playful pounce.
 
 All prompts require the same individual dog across its sheet, actual alpha transparency, no text, no backdrop, no collars and no aggressive violence. Breed traits are playful visual interpretations, not statements about every individual dog's behavior.
+
+## Eight-frame walking revision (2026-10-20)
+
+Five additional <breed>-walk-sheet.png files were generated with the built-in imagegen tool using the existing breed contact sheet as a character reference. Actual dimensions: 1774×887, four columns by two rows, transparent alpha. Complete silhouettes are extracted before resizing; feet share a fixed baseline and a common scale per breed. Original sheets are retained.
+
+Prompt: Production pixel-art desktop dog walking animation, exactly eight sequential full-body right-facing poses in a 4×2 grid. Same breed, identity, torso position and scale; stable head and ground baseline, alternating quadruped legs, gentle walking rather than running, subtle breed-specific ear and tail motion, seamless last-to-first cycle. Generous transparent margins; no extra dogs, props, labels, grid lines or background. Breed identities follow the additions above.

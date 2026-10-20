@@ -19,7 +19,7 @@ let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefine
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='강아지 5종 · 마우스 선택';
+const buildLabel='강아지 프레임·속도 수정';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -27,7 +27,7 @@ function inputReport(){
 }
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',testProfile);}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:app.getVersion(),platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
+function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:app.getVersion(),platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state(),serialized=JSON.stringify(value);if(serialized===lastSent)return;lastSent=serialized;stateMessages++;for(const view of [win,remote])if(view&&!view.isDestroyed())view.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
 const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}},status=>{hookError=inputError(status);send();refresh();});
@@ -169,14 +169,21 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    if(left!=='matrix(-1, 0, 0, 1, 0, 0)'||right!=='matrix(1, 0, 0, 1, 0, 0)')throw Error('Facing mirror failed');
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=dog]').click()`);await new Promise(r=>setTimeout(r,100));
    if(options.pet!=='dog')throw Error('Dog selection failed');
+   // Renderer fixture states must not race the real idle/wander timer.
+   clearInterval(timer);
    const dogReport=[];
    for(const breed of breeds){
     await remote!.webContents.executeJavaScript(`(()=>{const s=document.querySelector('#dog-breed');s.value=${JSON.stringify(breed)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,100));
     if(options.dogBreed!==breed||JSON.parse(readFileSync(settingsPath(),'utf8')).options.dogBreed!==breed)throw Error('Dog breed not saved');
     for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CLIMB_UP','CLIMB_DOWN','CARRY']){
-     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,35));
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,100));
      const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return !!img&&img.complete&&img.naturalWidth>0&&img.getAttribute('src').startsWith('./sprites/dog-'+${JSON.stringify(breed)}+'-');})()`);
      if(!loaded)throw Error('Dog animation failed: '+breed+' '+action);
+     const timing=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),style=getComputedStyle(img);return {duration:parseFloat(style.animationDuration),name:style.animationName,width:img.naturalWidth};})()`);
+     if(action==='WALK'&&timing.width!==800)throw Error('Dog walk needs eight frames');
+     if((action==='FALL'||action==='LAND')&&timing.name!=='none')throw Error('Single pose should hold still');
+     if(action==='SLEEP'&&timing.duration<2.4)throw Error('Dog sleep cycle too fast');
+     if(action==='ATTACK'&&timing.duration<.9)throw Error('Dog attack cycle too fast');
     }
     if(process.argv.includes('--capture-smoke')){
      win.webContents.send('state',{...state(),action:'IDLE',carried:false,animate:false});await new Promise(r=>setTimeout(r,50));

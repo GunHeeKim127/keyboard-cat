@@ -24,7 +24,7 @@ function AvatarName({name,display}:{name:string;display:NameDisplay}){
  const [draft,setDraft]=useState(name);
  useEffect(()=>setDraft(name),[name]);
  function save(){window.cat.options({avatarName:draft});setDraft(draft.trim()||'고양이');}
- return <form className="avatar-settings" onSubmit={e=>{e.preventDefault();save();}}><label htmlFor="avatar-name">아바타 이름</label><div><input id="avatar-name" value={draft} maxLength={40} placeholder="고양이" onChange={e=>setDraft(e.target.value)} onBlur={save}/><button type="submit">저장</button></div><p>최대 20자 · 이름과 표시 방식은 자동으로 저장돼요.</p><label htmlFor="avatar-name-display">이름 표시</label><select id="avatar-name-display" value={display} onChange={e=>window.cat.options({nameDisplay:e.target.value})}><option value="always">항상 표시</option><option value="hover">마우스를 올릴 때만 표시</option><option value="hidden">숨기기</option></select></form>;
+ return <form className="avatar-settings" onSubmit={e=>{e.preventDefault();save();}}><label htmlFor="avatar-name">아바타 이름</label><div><input id="avatar-name" value={draft} maxLength={40} placeholder="고양이" onChange={e=>setDraft(e.target.value)} onBlur={save}/><button type="submit">저장</button></div><p>최대 20자 · 이름과 표시 방식은 자동으로 저장돼요.</p><span className="name-display-label">이름 표시</span><div className="name-display-options" role="group" aria-label="이름 표시">{(['always','hover','hidden'] as const).map(mode=><button key={mode} type="button" data-name-display={mode} aria-pressed={display===mode} className={display===mode?'selected':''} onClick={()=>window.cat.options({nameDisplay:mode})}>{mode==='always'?'항상 표시':mode==='hover'?'올릴 때만':'이름 숨기기'}</button>)}</div><p data-name-display-status>{display==='hidden'?'현재 이름을 숨기고 있어요.':display==='always'?'현재 이름을 항상 표시해요.':'현재 마우스를 올릴 때만 이름을 표시해요.'}</p></form>;
 }
 function PetPicker({options:o}:{options:Options}){
  const preview=spriteFor(o.pet,o.dogBreed,'IDLE');
@@ -33,7 +33,7 @@ function PetPicker({options:o}:{options:Options}){
 function Controller({s}:{s:State}){
  const o=s.options,labels:Record<string,string>={low:'저 · 절전',medium:'중 · 균형',high:'고 · 풍성하게',custom:'사용자 설정'};
  return <div className="controller"><header><div className="eyebrow">DESKTOP COMPANION</div><h1>Keyboard Cat <span>리모컨</span></h1><p>내 PC에 맞게 가볍게, 또는 풍성하게. <span data-app-version>v{s.version}</span> · {s.buildLabel}</p></header>
-  <PetPicker options={o}/><AvatarName name={o.avatarName} display={o.nameDisplay}/>
+  <AvatarName name={o.avatarName} display={o.nameDisplay}/><PetPicker options={o}/>
   <div className="section-label">화질 / 성능 <span>{labels[o.quality]}</span></div>
   <div className="presets">{['low','medium','high'].map((p,i)=><button data-preset={p} className={o.quality===p?'selected':''} key={p} onClick={()=>window.cat.options({preset:p})}><b>{['저','중','고'][i]}</b><small>{['절전 · 5 FPS','균형 · 8 FPS','효과 · 12 FPS'][i]}</small></button>)}</div>
   <p className="hint">원본 픽셀 해상도는 같고, 크기·프레임·효과를 조절해요.</p>

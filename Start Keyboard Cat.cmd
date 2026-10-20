@@ -5,17 +5,10 @@ if exist "node_modules\electron\dist\electron.exe" if exist "dist-electron\main.
   start "" "node_modules\electron\dist\electron.exe" .
   exit /b 0
 )
-if exist "release\windows-current\win-unpacked\Keyboard Cat.exe" (
-  start "" "release\windows-current\win-unpacked\Keyboard Cat.exe"
+if exist "release\windows-1.3.6\win-unpacked\Keyboard Cat.exe" (
+  start "" "release\windows-1.3.6\win-unpacked\Keyboard Cat.exe"
   exit /b 0
 )
-if exist "release\fix3-name-display\win-unpacked\Keyboard Cat.exe" (
-  start "" "release\fix3-name-display\win-unpacked\Keyboard Cat.exe"
-  exit /b 0
-)
-if exist "release\win-unpacked\Keyboard Cat.exe" (
-  start "" "release\win-unpacked\Keyboard Cat.exe"
-  exit /b 0
-)
-echo Build the app first: npm install ^&^& npm run dist
+
+echo Build the app first: npm install ^&^& npm run build
 pause

@@ -19,7 +19,7 @@ let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefine
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='보행·프레임 수정 3 · 이름 표시 설정';
+const buildLabel='이름 숨기기 버튼 · 보행 프레임 수정';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -138,9 +138,12 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))`);
    await new Promise(r=>setTimeout(r,100));
    if(await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`))throw Error('Hover name did not hide');
+   const nameControlVisible=await remote!.webContents.executeJavaScript(`(()=>{const b=document.querySelector('[data-name-display=hidden]'),r=b?.getBoundingClientRect();return !!b&&b.textContent==='이름 숨기기'&&r.top>=0&&r.bottom<=innerHeight;})()`);
+   if(!nameControlVisible)throw Error('Name hide button not visible in initial viewport');
    for(const mode of ['always','hidden','hover'] as const){
-    await remote!.webContents.executeJavaScript(`(()=>{const select=document.querySelector('#avatar-name-display');select.value=${JSON.stringify(mode)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,100));
+    await remote!.webContents.executeJavaScript(`document.querySelector('[data-name-display='+${JSON.stringify(mode)}+']').click()`);await new Promise(r=>setTimeout(r,100));
     if(options.nameDisplay!==mode||JSON.parse(readFileSync(settingsPath(),'utf8')).options.nameDisplay!==mode)throw Error('Name display setting not saved');
+    const selectedNameButton=await remote!.webContents.executeJavaScript(`document.querySelector('[data-name-display='+${JSON.stringify(mode)}+']').getAttribute('aria-pressed')`);if(selectedNameButton!=='true')throw Error('Name display button selection missing');
     const visible=await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`);if(visible!==(mode==='always'))throw Error('Name visibility without hover failed');
     await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);await new Promise(r=>setTimeout(r,70));
     const hoveredName=await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`);if(hoveredName!==(mode!=='hidden'))throw Error('Name visibility with hover failed');

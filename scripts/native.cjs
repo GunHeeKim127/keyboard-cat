@@ -7,5 +7,5 @@ if(process.platform==='win32'){
  for(const arch of ['arm64','x86_64'])execFileSync('xcrun',['clang','-arch',arch,'-mmacosx-version-min=13.0','-O2','-Wall','-Wextra','-Werror','native/KeyCounter-mac.c','-framework','ApplicationServices','-framework','CoreFoundation','-o',`native/.build/KeyCounter-${arch}`],{stdio:'inherit'});
  execFileSync('xcrun',['lipo','-create','native/.build/KeyCounter-arm64','native/.build/KeyCounter-x86_64','-output','native/KeyCounter-mac'],{stdio:'inherit'});
  fs.chmodSync('native/KeyCounter-mac',0o755);
- execFileSync('codesign',['--force','--sign','-','native/KeyCounter-mac'],{stdio:'inherit'});
+ execFileSync('codesign',['--force','--sign','-','--identifier','local.keyboardcat.pet.input','native/KeyCounter-mac'],{stdio:'inherit'});
 }else throw Error('Only Windows and macOS builds are supported');

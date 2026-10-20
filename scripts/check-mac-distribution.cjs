@@ -7,7 +7,7 @@ for(const app of apps){
   // Gatekeeper must accept the app and the stapled ticket must validate offline.
   execFileSync('/usr/sbin/spctl',['--assess','--type','execute','--verbose=2',app],{stdio:'inherit'});
   execFileSync('/usr/bin/xcrun',['stapler','validate',app],{stdio:'inherit'});
-  const helper=path.join(app,'Contents','Resources','KeyCounter-mac');
+  const helper=path.join(app,'Contents','MacOS','KeyCounter-mac');
   const teams=[];
   for(const binary of [app,helper]){
     const result=spawnSync('/usr/bin/codesign',['--display','--verbose=4',binary],{encoding:'utf8'});

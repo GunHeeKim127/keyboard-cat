@@ -3,7 +3,7 @@ const exe=path.resolve(process.platform==='darwin'?'native/KeyCounter-mac':'nati
 execFileSync(exe,['--self-test'],{stdio:'inherit',windowsHide:true});
 if(process.platform==='darwin'){
  const probe=spawnSync(exe,[String(process.pid),'--no-prompt'],{encoding:'utf8',timeout:2000});
- const status=probe.stderr.includes('INPUT_READY')?'ready':probe.status===77&&probe.stderr.includes('PERMISSION_REQUIRED')?'permission-required':probe.status===78&&probe.stderr.includes('EVENT_TAP_UNAVAILABLE')?'tap-unavailable':'failed';
+ const status=probe.stderr.includes('INPUT_READY')?'ready':probe.status===77&&probe.stderr.includes('PERMISSION_REQUIRED')?'permission-required':probe.status===78&&/EVENT_TAP_UNAVAILABLE|TAP_DISABLED|TAP_INVALID/.test(probe.stderr)?'tap-unavailable':'failed';
  console.log(JSON.stringify({noPromptProbe:status,physicalKeyTest:'manual'}));
  if(status==='failed'){console.error(probe.stderr,probe.error?.message||probe.status);process.exit(1);}
  console.log('Parser and no-prompt startup passed; real typing and interactive permission changes remain manual.');process.exit(0);

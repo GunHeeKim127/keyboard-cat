@@ -68,14 +68,14 @@
       "hardenedRuntime": false,
       "notarize": false,
       "artifactName": "Keyboard-Cat-${version}-mac-${arch}.${ext}",
-      "extraResources": [
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extraFiles": [
         {
           "from": "native/KeyCounter-mac",
-          "to": "KeyCounter-mac"
+          "to": "MacOS/KeyCounter-mac"
         }
-      ],
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      ]
     }
   },
   "engines": {

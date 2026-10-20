@@ -1,8 +1,9 @@
-import {app,BrowserWindow,Tray,Menu,nativeImage,ipcMain,screen,dialog,session,powerMonitor,shell} from 'electron';
+import {app,BrowserWindow,Tray,Menu,nativeImage,ipcMain,screen,dialog,session,powerMonitor,shell,clipboard} from 'electron';
 import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
+import {findMacCopies,macLaunchLocation,macLeftovers,runningMacCopies} from './input-diagnostics';
 import {Combo} from './combo';
 import {animationState} from './view-state';
 import {Options,presets,updateOptions} from './options';
@@ -16,9 +17,16 @@ let options:Options={...presets.low},paused=false,moving=false,quitting=false,ho
 let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
+let diagnosticReport='';
+const buildLabel='입력 수정 2';
+function inputReport(){
+ const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
+ const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
+ return [`Keyboard Cat ${app.getVersion()} · ${buildLabel}`,`OS: ${process.platform} ${process.getSystemVersion()} / ${process.arch}`,`상태: ${inputMonitor.status}`,`실행 위치: ${process.platform==='darwin'?macLaunchLocation(app.getPath('exe')):'Windows'}`,`실행 파일: ${app.getPath('exe')}`,`입력 보조 프로그램: ${helper}`,`보조 프로그램 존재: ${existsSync(helper)}`,`앱 설정 파일: ${settingsPath()} (존재: ${existsSync(settingsPath())})`,`연결 진단: ${JSON.stringify(inputMonitor.diagnostics)}`,...(process.platform==='darwin'?['발견한 앱 복사본(표준 설치·다운로드·바탕화면·마운트 루트만 확인):',...copies.map(p=>'  '+p),...(!copies.length?['  없음 또는 폴더 접근 불가']:[]),'실행 중인 앱/보조 프로그램(PID · 경로):',...runningMacCopies(),'남아 있는 앱 전용 설정·캐시 위치(현재 사용 중인 데이터도 포함):',...macLeftovers(app.getPath('home'),app.getPath('userData')),'이 위치들이 존재한다고 권한 오류의 원인이라는 뜻은 아닙니다. 권한 승인은 macOS가 별도로 관리하며 앱 삭제로 초기화됐는지 확인할 수 없습니다.','같은 앱의 복사본이 있어도 버전·실행 여부까지 의미하지 않습니다. 임의 하위 폴더·설정 파일·권한 DB는 검사하거나 변경하지 않습니다.']:[]),'키 내용과 입력 횟수는 이 보고서에 포함되지 않습니다. 실행 경로에 사용자 이름이 있을 수 있으니 공유 전에 확인하세요.'].join('\n');
+}
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',testProfile);}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {version:app.getVersion(),platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
+function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:app.getVersion(),platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state(),serialized=JSON.stringify(value);if(serialized===lastSent)return;lastSent=serialized;stateMessages++;for(const view of [win,remote])if(view&&!view.isDestroyed())view.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
 const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}},status=>{hookError=inputError(status);send();refresh();});
@@ -72,7 +80,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   ipcMain.on('options',(e,p)=>{if(trusted(e)&&e.sender===remote?.webContents)apply(p);});
   ipcMain.on('hover',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'&&!moving&&!carried)win.setIgnoreMouseEvents(!(options.grabEnabled&&on===true),{forward:true});});
   ipcMain.on('carry',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'){if(on===true)startCarry();else finishCarry();}});
-  ipcMain.on('command',(e,c)=>{if(!trusted(e)||typeof c!=='string'||(e.sender===win.webContents&&c!=='lock'))return;switch(c){case 'move':setMoving(!moving);break;case 'lock':setMoving(false);save();break;case 'pause':togglePause();break;case 'center':center();break;case 'reconnect':stopInput();startInput();send();break;case 'input-settings':if(process.platform==='darwin')void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent').catch(()=>{hookError='입력 권한 설정을 열지 못했습니다';send();});break;case 'hide':remote?.close();break;case 'quit':app.quit();break;case 'remote':void openRemote();}});
+  ipcMain.on('command',(e,c)=>{if(!trusted(e)||typeof c!=='string'||(e.sender===win.webContents&&c!=='lock'))return;switch(c){case 'input-diagnostics':diagnosticReport=inputReport();send();break;case 'copy-diagnostics':diagnosticReport=inputReport();clipboard.writeText(diagnosticReport);send();break;case 'move':setMoving(!moving);break;case 'lock':setMoving(false);save();break;case 'pause':togglePause();break;case 'center':center();break;case 'reconnect':stopInput();startInput();send();break;case 'input-settings':if(process.platform==='darwin')void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent').catch(()=>{hookError='입력 권한 설정을 열지 못했습니다';send();});break;case 'hide':remote?.close();break;case 'quit':app.quit();break;case 'remote':void openRemote();}});
   await win.loadFile(path.join(__dirname,'../dist/index.html'));
   tray=new Tray(nativeImage.createFromPath(path.join(__dirname,'../dist/sprites/IDLE-0.png')).resize({width:32,height:32}));tray.setToolTip('Keyboard Cat · 리모컨');tray.on('double-click',()=>{void openRemote();});refresh();
   win.on('close',e=>{if(!quitting){e.preventDefault();setMoving(false);}});
@@ -91,6 +99,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    for(const event of invalidEvents)ipcMain.emit('options',event,{avatarName:'UNTRUSTED'});
    if(options.avatarName==='UNTRUSTED')throw Error('Untrusted options accepted');
    ipcMain.emit('command',petEvent,'quit');if(quitting)throw Error('Pet issued controller command');
+   ipcMain.emit('command',petEvent,'input-diagnostics');if(diagnosticReport)throw Error('Pet accessed local diagnostics');
    const outsideFile=path.join(app.getPath('userData'),'outside.png');writeFileSync(outsideFile,readFileSync(path.join(distRoot,'sprites/IDLE-0.png')));const outside=pathToFileURL(outsideFile).href;
    const deniedResource=await win.webContents.executeJavaScript(`new Promise(resolve=>{const img=new Image();img.onload=()=>resolve(false);img.onerror=()=>resolve(true);img.src=${JSON.stringify(outside)};setTimeout(()=>resolve(false),1000);})`);
    if(!deniedResource)throw Error('Unrelated local resource was not blocked');
@@ -110,6 +119,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    const report=await win.webContents.executeJavaScript(`new Promise(resolve=>{const check=()=>{const img=document.querySelector('img');if(img&&img.complete&&img.naturalWidth>0)resolve({ready:!!window.cat,width:img.naturalWidth});else setTimeout(check,50);};check();setTimeout(()=>resolve({ready:false}),5000);})`);
    const panelReport=await remote!.webContents.executeJavaScript(`new Promise(resolve=>setTimeout(()=>resolve({presets:document.querySelectorAll('[data-preset]').length,toggles:document.querySelectorAll('input[type=checkbox]').length,scroll:document.documentElement.scrollHeight>innerHeight}),200))`);
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
+   await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));
+   const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(app.getVersion())})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+app.getVersion())};})()`);
+   if(!diagnosticsReady)throw Error('Input diagnostics or displayed app version missing');
    await remote!.webContents.executeJavaScript(`(()=>{const input=document.querySelector('#avatar-name');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'테스트 나비');input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
    await new Promise(r=>setTimeout(r,80));
    await remote!.webContents.executeJavaScript(`document.querySelector('.avatar-settings').requestSubmit()`);

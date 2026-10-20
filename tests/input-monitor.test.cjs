@@ -36,3 +36,20 @@ test('a pending OS permission prompt is not killed by the readiness timeout',t=>
  t.mock.timers.tick(60000);assert.equal(f.children[0].killed,undefined);assert.equal(f.monitor.status,'permission');
  f.children[0].stderr.write('INPUT_READY\n');assert.equal(f.monitor.status,'ready');
 });
+test('fixed diagnostic tokens distinguish OS denial from tap failure without retaining arbitrary output',t=>{
+ const f=fixture(t);f.monitor.start();const old=f.children[0];
+ old.stderr.write('ACCESS_ALLOWED\nTAP_CREATE_FAILED\nprivate typed text\n');
+ assert.equal(f.monitor.diagnostics.access,'allowed');assert.equal(f.monitor.diagnostics.tap,'failed');
+ assert.ok(!JSON.stringify(f.monitor.diagnostics).includes('private'));
+ old.emit('exit',78);assert.equal(f.monitor.diagnostics.exitCode,78);
+ t.mock.timers.tick(5000);assert.equal(f.monitor.diagnostics.attempt,2);assert.equal(f.monitor.diagnostics.access,'unknown');
+ old.stderr.write('ACCESS_DENIED\n');assert.equal(f.monitor.diagnostics.access,'unknown');
+ f.children[1].stderr.write('ACCESS_DENIED\nTAP_CREATED\nINPUT_READY\n');
+ assert.equal(f.monitor.diagnostics.access,'denied');assert.equal(f.monitor.diagnostics.tap,'created');assert.equal(f.monitor.status,'ready');
+});
+test('missing helper, executable access denial and readiness timeout have distinct diagnostics',t=>{
+ const f=fixture(t);f.monitor.start();f.children[0].emit('error',Object.assign(new Error('private path'),{code:'ENOENT'}));assert.equal(f.monitor.diagnostics.launchError,'not-found');
+ f.monitor.start();f.children[1].emit('error',Object.assign(new Error('private path'),{code:'EACCES'}));assert.equal(f.monitor.diagnostics.launchError,'permission-denied');
+ f.monitor.start();t.mock.timers.tick(30000);assert.equal(f.monitor.diagnostics.timedOut,true);
+ assert.ok(!JSON.stringify(f.monitor.diagnostics).includes('private path'));
+});

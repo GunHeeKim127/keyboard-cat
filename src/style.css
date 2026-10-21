@@ -26,3 +26,7 @@
 .name-display-options button[data-name-display="hover"]{flex:2.2}
 
 .ladder{position:absolute;bottom:0;width:24%;height:72%;box-sizing:border-box;border-left:6px solid #8a532e;border-right:6px solid #8a532e;outline:2px solid #3c251d;border-radius:2px;display:flex;flex-direction:column;justify-content:space-around;pointer-events:none;box-shadow:inset 2px 0 #d39a52}.ladder i{display:block;height:5px;background:#c18a4c;border-top:1px solid #e6b974;border-bottom:2px solid #684126}[data-pet-kind="cat"]:not([data-cat-breed="original"]) .pet .facing{position:relative;z-index:1}[data-pet-kind="cat"]:not([data-cat-breed="original"]) .pet.climb_up .sprite{animation:ladder-up 1.4s linear both}[data-pet-kind="cat"]:not([data-cat-breed="original"]) .pet.climb_down .sprite{animation:ladder-down 1.4s linear both}@keyframes ladder-up{from{translate:0 0}to{translate:0 -10px}}@keyframes ladder-down{from{translate:0 -10px}to{translate:0 0}}
+
+/* Small continuous weight shifts; keep frame registration independent of feet. */
+[data-isolated="true"] .pet.walk .sprite{animation:walk-sway var(--walk-cycle) ease-in-out infinite}@keyframes walk-sway{0%,50%,100%{translate:0 0}25%{translate:var(--walk-sway-x) var(--walk-sway-y)}75%{translate:calc(-1 * var(--walk-sway-x)) var(--walk-sway-y)}}
+[data-isolated="true"] .sprite img{object-fit:contain;object-position:center bottom}

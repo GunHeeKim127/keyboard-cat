@@ -66,7 +66,7 @@ function App(){
   {s.moving&&<div className="toolbar"><span>드래그하여 이동</span><button onClick={()=>window.cat.lock()}>위치 고정</button></div>}
   {o.showCombo&&s.combo>0&&<div className="combo"><strong>{s.combo}</strong><span>COMBO</span><div key={s.lastHit} className="meter" style={{animationDelay:`-${Math.min(1500,Date.now()-s.lastHit)}ms`}}/></div>}
   {s.effect>0&&<div className="burst" key={s.effectAt}>{s.effect===50?(o.pet==='dog'?'✦ WOOF POWER ✦':'✦ MEOW POWER ✦'):s.effect===30?'⚡ SUPER DASH ⚡':s.effect===20?(s.action==='CLIMB_DOWN'?'↓ 내려오기 ↓':'↑ 사다리 콤보 ↑'):'✧ NICE! ✧'}</div>}
-  <div className={`pet ${s.carried?'carry':s.landing?'landing':s.animate?s.action.toLowerCase():''} ${o.grabEnabled?'grabbable':''}`} style={{width:112*o.size,height:112*o.size,'--facing':s.facing,'--drop-y':'-6px'} as React.CSSProperties}
+  <div className={`pet ${s.carried?'carry':s.landing?'landing':s.animate?s.action.toLowerCase():''} ${o.grabEnabled?'grabbable':''}`} style={{width:112*o.size,height:112*o.size,'--facing':s.facing,'--drop-y':'-6px','--walk-cycle':duration+'s','--walk-sway-x':(.8*o.size)+'px','--walk-sway-y':(-.5*o.size)+'px'} as React.CSSProperties}
    onMouseEnter={()=>{setHovered(true);window.cat.hover(true);}} onMouseLeave={()=>{setHovered(false);window.cat.hover(false);}}
    onPointerDown={e=>{if(e.button===0&&o.grabEnabled&&!s.moving){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);window.cat.carry(true);}}}
    onPointerUp={e=>{window.cat.carry(false);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}

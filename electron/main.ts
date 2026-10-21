@@ -21,7 +21,7 @@ let stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='고양이 사다리 크기 수정 · 강아지 사다리 복원';
+const buildLabel='귀여운 보행 · 자연스러운 흔들림 · 크기 점검';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -197,6 +197,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      if(action.startsWith('CLIMB_')){const previousLadder=await win.webContents.executeJavaScript(`({extra:!!document.querySelector('.ladder'),movement:getComputedStyle(document.querySelector('.sprite')).animationName})`);if(previousLadder.extra||previousLadder.movement!=='none')throw Error('Dog ladder has extra prop or movement');}
      const timing=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),style=getComputedStyle(img);return {duration:Number(img.dataset.cycleDuration),name:style.animationName,width:img.naturalWidth,frames:Number(img.dataset.frameCount)};})()`);
      if(action==='WALK'&&(timing.width!==100||timing.frames!==8))throw Error('Dog walk needs eight frames');
+     if(action==='WALK'){const sway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(sway!=='walk-sway')throw Error('Dog natural sway missing');}
      if((action==='FALL'||action==='LAND')&&timing.name!=='none')throw Error('Single pose should hold still');
      if(action==='SLEEP'&&timing.duration<2.4)throw Error('Dog sleep cycle too fast');
      if(action==='ATTACK'&&timing.duration<.9)throw Error('Dog attack cycle too fast');
@@ -211,13 +212,14 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    for(const breed of catBreeds.filter(b=>b!=='original')){
     apply({pet:'cat'});await new Promise(r=>setTimeout(r,50));
     await remote!.webContents.executeJavaScript(`(()=>{const select=document.querySelector('#cat-breed');select.value=${JSON.stringify(breed)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,80));
-    if(options.catBreed!==breed)throw Error('Cat breed mouse selection failed');
+    if(options.catBreed!==breed)throw Error('Cat breed mouse selection failed');landingUntil=0;
     const selected=await remote!.webContents.executeJavaScript(`document.querySelector('#cat-breed')?.value`);if(selected!==breed)throw Error('Cat breed control not synchronized');
     if(JSON.parse(readFileSync(settingsPath(),'utf8')).options.catBreed!==breed)throw Error('Cat breed not saved');
     for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CLIMB_UP','CLIMB_DOWN','CARRY']){
      win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,120));
      const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),ladder=document.querySelector('.ladder');return {ready:!!img&&img.complete&&img.naturalWidth===100&&img.getAttribute('src').startsWith('./sprites/cat-'+${JSON.stringify(breed)}+'-'),ladder:ladder?.getAttribute('data-direction'),reverse:img?.dataset.reverse,ladderRatio:ladder?ladder.getBoundingClientRect().height/document.querySelector('.pet').getBoundingClientRect().height:0};})()`);
      if(!loaded.ready)throw Error('Cat action missing: '+breed+' '+action);
+     if(action==='WALK'){const sway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(sway!=='walk-sway')throw Error('Cat natural sway missing');}
      if(action.startsWith('CLIMB_')&&(loaded.ladder!==(action==='CLIMB_DOWN'?'down':'up')||loaded.reverse!==String(action==='CLIMB_DOWN')))throw Error('Cat ladder direction missing');
      if(action.startsWith('CLIMB_')&&Math.abs(loaded.ladderRatio-.72)>.02)throw Error('Cat ladder too tall');
      if(!action.startsWith('CLIMB_')&&loaded.ladder)throw Error('Ladder left behind');
@@ -239,6 +241,21 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     const isolated=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),box=document.querySelector('.sprite');return {width:img.naturalWidth,count:img.dataset.frameCount,transform:getComputedStyle(img).transform,fits:img.getBoundingClientRect().width<=box.getBoundingClientRect().width+.01};})()`);
     if(isolated.width!==100||isolated.count!=='8'||isolated.transform!=='none'||!isolated.fits)throw Error('Dog frame isolation failed at size '+size);
    }
+   const aspectReport=[];
+   for(const pet of ['cat','dog'] as const)for(const size of [.75,1,1.3]){
+    apply({pet,size});landingUntil=0;
+    for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CARRY','CLIMB_UP','CLIMB_DOWN']){
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,60));
+     const geometry=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),box=document.querySelector('.pet'),style=getComputedStyle(img);return {fit:style.objectFit,position:style.objectPosition,width:img.naturalWidth,height:img.naturalHeight,boxWidth:box.offsetWidth,boxHeight:box.offsetHeight};})()`);
+     if(geometry.fit!=='contain'||geometry.position!=='50% 100%'||geometry.width!==100||geometry.height!==110||Math.abs(geometry.boxWidth-112*size)>1||Math.abs(geometry.boxHeight-112*size)>1)throw Error('Sprite aspect ratio changed: '+pet+' '+action+' '+size);
+    }
+    if(process.argv.includes('--capture-smoke')){
+     win.webContents.send('state',{...state(),action:'IDLE',carried:false,animate:false});await new Promise(r=>setTimeout(r,80));
+     const dir=path.join(app.getAppPath(),'work');mkdirSync(dir,{recursive:true});writeFileSync(path.join(dir,pet+'-aspect-'+size+'.png'),(await win.webContents.capturePage()).toPNG());
+    }
+    aspectReport.push({pet,size,actions:11,fit:'contain'});
+   }
+   apply({pet:'dog'});landingUntil=0;
    // All husky poses were loaded above. Re-entering a motion must reuse decodes.
    await win.webContents.executeJavaScript(`(()=>{window.__dogDecodeCalls=0;const decode=HTMLImageElement.prototype.decode;HTMLImageElement.prototype.decode=function(){window.__dogDecodeCalls++;return decode.call(this);};})()`);
    win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:true});await new Promise(r=>setTimeout(r,600));
@@ -248,6 +265,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    const repeatedDogDecodes=await win.webContents.executeJavaScript(`window.__dogDecodeCalls`);if(repeatedDogDecodes!==0)throw Error('Previously loaded dog frames decoded again');
    win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:false});await new Promise(r=>setTimeout(r,500));
    const stopped=await win.webContents.executeJavaScript(`document.querySelector('.sprite img').dataset.frame`);if(stopped!=='0')throw Error('Dog stopped walk kept advancing');
+   const stoppedSway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(stoppedSway!=='none')throw Error('Stopped walking kept swaying');
    for(const key of ['wander','effects','restAnimation','sleepAnimation','showCombo','grabEnabled','multiMonitor'] as const){
     apply({[key]:false});await new Promise(r=>setTimeout(r,40));
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-option=${key}]').click()`);await new Promise(r=>setTimeout(r,50));
@@ -263,7 +281,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,mouseSelection:true}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,aspectReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

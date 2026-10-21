@@ -2,18 +2,27 @@ import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './style.css';
 import type {NameDisplay} from '../electron/options';
-import {DogBreed,PetKind,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
-type Options={pet:PetKind;dogBreed:DogBreed;avatarName:string;nameDisplay:NameDisplay;quality:string;size:number;fps:number;wander:boolean;effects:boolean;restAnimation:boolean;sleepAnimation:boolean;showCombo:boolean;grabEnabled:boolean;multiMonitor:boolean};
+import {DogBreed,PetKind,CatBreed,catBreeds,catBreedNames,catBreedTraits,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
+type Options={pet:PetKind;dogBreed:DogBreed;catBreed:CatBreed;avatarName:string;nameDisplay:NameDisplay;quality:string;size:number;fps:number;wander:boolean;effects:boolean;restAnimation:boolean;sleepAnimation:boolean;showCombo:boolean;grabEnabled:boolean;multiMonitor:boolean};
 type State={buildLabel:string;diagnosticReport:string;version:string;platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
 declare global {interface Window{cat:{snapshot:()=>Promise<State>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
-// Each dog frame has its own texture, so fractional sizes cannot reveal adjacent poses.
-function DogSprite({src,frames,duration,animate,reverse=false}:{src:string;frames:number;duration:number;animate:boolean;reverse?:boolean}){
+// Each generated pet frame has its own texture, so fractional sizes cannot reveal adjacent poses.
+// Assets are a fixed, finite set. Retain successful decodes across motion changes.
+const frameTextures=new Map<string,Promise<HTMLImageElement>>();
+function loadFrame(url:string){
+ let loaded=frameTextures.get(url);
+ if(!loaded){const img=new Image();img.src=url;loaded=img.decode().then(()=>img);frameTextures.set(url,loaded);loaded.catch(()=>frameTextures.delete(url));}
+ return loaded;
+}
+function FrameSprite({src,frames,duration,animate,reverse=false}:{src:string;frames:number;duration:number;animate:boolean;reverse?:boolean}){
  const first=reverse?frames-1:0,[frame,setFrame]=useState(first);
  useEffect(()=>{
   let disposed=false,timer:ReturnType<typeof setInterval>|undefined;
   setFrame(reverse?frames-1:0);
-  const images=Array.from({length:frames},(_,i)=>{const img=new Image();img.src=src.replace('-atlas.png','-frame-'+i+'.png');return img;});
-  Promise.all(images.map(img=>img.decode())).then(()=>{
+  // A stationary pose needs no preload work or timer.
+  if(!animate||frames<=1)return;
+  const images=Array.from({length:frames},(_,i)=>loadFrame(src.replace('-atlas.png','-frame-'+i+'.png')));
+  Promise.all(images).then(()=>{
    if(!disposed&&animate&&frames>1)timer=setInterval(()=>setFrame(f=>(f+(reverse?frames-1:1))%frames),duration*1000/frames);
   },()=>{/* Keep the first pose if an asset cannot load. */});
   return()=>{disposed=true;if(timer!==undefined)clearInterval(timer);};
@@ -27,8 +36,8 @@ function AvatarName({name,display}:{name:string;display:NameDisplay}){
  return <form className="avatar-settings" onSubmit={e=>{e.preventDefault();save();}}><label htmlFor="avatar-name">아바타 이름</label><div><input id="avatar-name" value={draft} maxLength={40} placeholder="고양이" onChange={e=>setDraft(e.target.value)} onBlur={save}/><button type="submit">저장</button></div><p>최대 20자 · 이름과 표시 방식은 자동으로 저장돼요.</p><span className="name-display-label">이름 표시</span><div className="name-display-options" role="group" aria-label="이름 표시">{(['always','hover','hidden'] as const).map(mode=><button key={mode} type="button" data-name-display={mode} aria-label={mode==='hidden'?'이름 숨기기':mode==='always'?'이름 항상 표시':'마우스를 올릴 때만 이름 표시'} aria-pressed={display===mode} className={display===mode?'selected':''} onClick={()=>window.cat.options({nameDisplay:mode})}>{mode==='always'?'항상':mode==='hover'?'마우스를 올릴 때만':'숨기기'}</button>)}</div><p data-name-display-status>{display==='hidden'?'현재 이름을 숨기고 있어요.':display==='always'?'현재 이름을 항상 표시해요.':'현재 마우스를 올릴 때만 이름을 표시해요.'}</p></form>;
 }
 function PetPicker({options:o}:{options:Options}){
- const preview=spriteFor(o.pet,o.dogBreed,'IDLE');
- return <section className="pet-picker" aria-label="반려동물 선택"><div className="pet-tabs">{(['cat','dog'] as const).map(p=><button key={p} data-pet={p} aria-pressed={o.pet===p} className={o.pet===p?'selected':''} onClick={()=>window.cat.options({pet:p})}>{p==='cat'?'고양이':'강아지'}</button>)}</div><div className="pet-choice"><div className="pet-preview"><img src={o.pet==='dog'?preview.src.replace('-atlas.png','-frame-0.png'):preview.src} alt={o.pet==='cat'?'고양이':breedNames[o.dogBreed]} style={{width:(o.pet==='dog'?100:preview.frames*100)+'%'}}/></div><div>{o.pet==='dog'?<><label htmlFor="dog-breed">강아지 종류</label><select id="dog-breed" value={o.dogBreed} onChange={e=>window.cat.options({dogBreed:e.target.value})}>{breeds.map(b=><option key={b} value={b}>{breedNames[b]}</option>)}</select><p>{breedTraits[o.dogBreed]}</p></>:<p>기존 고양이와 모션 그대로</p>}</div></div><p className="hint">마우스로 고양이·강아지와 견종을 선택해요. 마지막 선택은 저장됩니다.</p></section>;
+ const preview=spriteFor(o.pet,o.dogBreed,'IDLE',o.catBreed);
+ return <section className="pet-picker" aria-label="반려동물 선택"><div className="pet-tabs">{(['cat','dog'] as const).map(p=><button key={p} data-pet={p} aria-pressed={o.pet===p} className={o.pet===p?'selected':''} onClick={()=>window.cat.options({pet:p})}>{p==='cat'?'고양이':'강아지'}</button>)}</div><div className="pet-choice"><div className="pet-preview"><img src={(o.pet==='dog'||o.catBreed!=='original')?preview.src.replace('-atlas.png','-frame-0.png'):preview.src} alt={o.pet==='cat'?catBreedNames[o.catBreed]:breedNames[o.dogBreed]} style={{width:((o.pet==='dog'||o.catBreed!=='original')?100:preview.frames*100)+'%'}}/></div><div>{o.pet==='dog'?<><label htmlFor="dog-breed">강아지 종류</label><select id="dog-breed" value={o.dogBreed} onChange={e=>window.cat.options({dogBreed:e.target.value})}>{breeds.map(b=><option key={b} value={b}>{breedNames[b]}</option>)}</select><p>{breedTraits[o.dogBreed]}</p></>:<><label htmlFor="cat-breed">고양이 종류</label><select id="cat-breed" value={o.catBreed} onChange={e=>window.cat.options({catBreed:e.target.value})}>{catBreeds.map(b=><option key={b} value={b}>{catBreedNames[b]}</option>)}</select><p>{catBreedTraits[o.catBreed]}</p></>}</div></div><p className="hint">마우스로 고양이·강아지와 품종을 선택해요. 마지막 선택은 저장됩니다.</p></section>;
 }
 function Controller({s}:{s:State}){
  const o=s.options,labels:Record<string,string>={low:'저 · 절전',medium:'중 · 균형',high:'고 · 풍성하게',custom:'사용자 설정'};
@@ -49,11 +58,11 @@ function Controller({s}:{s:State}){
 }
 function App(){
  const [hovered,setHovered]=useState(false);
- const [s,set]=useState<State>({buildLabel:'',diagnosticReport:'',version:'',platform:'',inputReady:false,options:{pet:'cat',dogBreed:'chihuahua',avatarName:'고양이',nameDisplay:'hover',quality:'low',size:.75,fps:5,wander:false,effects:false,restAnimation:false,sleepAnimation:false,showCombo:true,grabEnabled:true,multiMonitor:true},facing:1,combo:0,paused:false,moving:false,carried:false,landing:false,hookError:'',effect:0,effectAt:0,lastHit:0,action:'IDLE',animate:false});
+ const [s,set]=useState<State>({buildLabel:'',diagnosticReport:'',version:'',platform:'',inputReady:false,options:{pet:'cat',dogBreed:'chihuahua',catBreed:'original',avatarName:'고양이',nameDisplay:'hover',quality:'low',size:.75,fps:5,wander:false,effects:false,restAnimation:false,sleepAnimation:false,showCombo:true,grabEnabled:true,multiMonitor:true},facing:1,combo:0,paused:false,moving:false,carried:false,landing:false,hookError:'',effect:0,effectAt:0,lastHit:0,action:'IDLE',animate:false});
  useEffect(()=>{let active=true;const off=window.cat.onState(v=>{if(active)set(v);});window.cat.snapshot().then(v=>{if(active&&v)set(v);});return()=>{active=false;off();};},[]);
  if(new URLSearchParams(location.search).has('panel'))return <Controller s={s}/>;
- const o=s.options,visualAction=s.carried&&o.pet==='dog'?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction),n=visual.frames,duration=spriteDuration(o.pet,visualAction,n,o.fps),spriteKey=o.pet+'-'+o.dogBreed+'-'+visualAction+'-'+s.effectAt;
- return <main data-pet-kind={o.pet} data-dog-breed={o.dogBreed} className={`${s.moving?'moving':''} ${!o.effects?'low-power':''} effect-${s.effect}`}>
+ const o=s.options,isolated=o.pet==='dog'||o.catBreed!=='original',visualAction=s.carried&&isolated?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction,o.catBreed),n=visual.frames,duration=spriteDuration(o.pet,visualAction,n,o.fps,o.catBreed),spriteKey=o.pet+'-'+o.dogBreed+'-'+o.catBreed+'-'+visualAction+'-'+s.effectAt;
+ return <main data-cat-breed={o.catBreed} data-isolated={isolated} data-pet-kind={o.pet} data-dog-breed={o.dogBreed} className={`${s.moving?'moving':''} ${!o.effects?'low-power':''} effect-${s.effect}`}>
   {s.moving&&<div className="toolbar"><span>드래그하여 이동</span><button onClick={()=>window.cat.lock()}>위치 고정</button></div>}
   {o.showCombo&&s.combo>0&&<div className="combo"><strong>{s.combo}</strong><span>COMBO</span><div key={s.lastHit} className="meter" style={{animationDelay:`-${Math.min(1500,Date.now()-s.lastHit)}ms`}}/></div>}
   {s.effect>0&&<div className="burst" key={s.effectAt}>{s.effect===50?(o.pet==='dog'?'✦ WOOF POWER ✦':'✦ MEOW POWER ✦'):s.effect===30?'⚡ SUPER DASH ⚡':s.effect===20?(s.action==='CLIMB_DOWN'?'↓ 내려오기 ↓':'↑ 사다리 콤보 ↑'):'✧ NICE! ✧'}</div>}
@@ -62,7 +71,8 @@ function App(){
    onPointerDown={e=>{if(e.button===0&&o.grabEnabled&&!s.moving){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);window.cat.carry(true);}}}
    onPointerUp={e=>{window.cat.carry(false);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
    onPointerCancel={()=>window.cat.carry(false)} onLostPointerCapture={()=>window.cat.carry(false)}>
-   <div className="facing" style={{transform:`scaleX(${s.facing})`}}>{s.carried&&o.pet==='cat'?<img className="carry-image" src="./sprites/carry.png" draggable={false}/>:<div className="sprite">{o.pet==='dog'?<DogSprite key={spriteKey} src={visual.src} frames={n} duration={duration} animate={s.carried?!s.paused:s.animate} reverse={s.action==='CLIMB_DOWN'}/>:<img key={spriteKey} src={visual.src} draggable={false} style={{width:`${n*100}%`,animation:(n>1)&&s.animate?`frames ${duration}s steps(${n}) infinite ${s.action==='CLIMB_DOWN'?'reverse':'normal'}`:'none'}}/>}</div>}</div>
+   {!s.carried&&s.animate&&s.action.startsWith('CLIMB_')&&<div className="ladder" aria-label="사다리" data-direction={s.action==='CLIMB_DOWN'?'down':'up'} style={{left:s.facing<0?'10%':'66%'}}><i/><i/><i/><i/><i/></div>}
+   <div className="facing" style={{transform:`scaleX(${s.facing})`}}>{s.carried&&!isolated?<img className="carry-image" src="./sprites/carry.png" draggable={false}/>:<div className="sprite">{isolated?<FrameSprite key={spriteKey} src={visual.src} frames={n} duration={duration} animate={s.carried?!s.paused:s.animate} reverse={s.action==='CLIMB_DOWN'}/>:<img key={spriteKey} src={visual.src} draggable={false} style={{width:`${n*100}%`,animation:(n>1)&&s.animate?`frames ${duration}s steps(${n}) infinite ${s.action==='CLIMB_DOWN'?'reverse':'normal'}`:'none'}}/>}</div>}</div>
    {(o.nameDisplay==='always'||(o.nameDisplay==='hover'&&hovered))&&<div className="avatar-name" role={o.nameDisplay==='hover'?'tooltip':undefined}>{o.avatarName}</div>}
   </div>
   {(s.paused||s.hookError)&&<div className="status">{s.paused?'쉬는 중 · 감지 꺼짐':s.hookError}</div>}

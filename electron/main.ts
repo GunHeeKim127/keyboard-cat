@@ -5,8 +5,9 @@ import {pathToFileURL} from 'node:url';
 import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
 import {findMacCopies,macLaunchLocation,macLeftovers,runningMacCopies} from './input-diagnostics';
 import {Combo} from './combo';
-import {breedNames,breeds} from './pets';
+import {breedNames,breeds,catBreeds,catBreedNames} from './pets';
 import {animationState} from './view-state';
+import {StateDelivery} from './state-delivery';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
@@ -15,11 +16,12 @@ import {isAppResource,isTrustedFrame,readSettings} from './security';
 const distRoot=path.join(__dirname,'../dist'),indexFile=path.join(distRoot,'index.html');
 let win:BrowserWindow,remote:BrowserWindow|undefined,tray:Tray;
 let options:Options={...presets.low},paused=false,moving=false,quitting=false,hookError='',effect=0,effectAt=0,lastHit=Date.now(),direction=1;
-let lastSent='',stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
+const petDelivery=new StateDelivery(),controllerDelivery=new StateDelivery(true);
+let stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='이름 숨기기 버튼 · 보행 프레임 수정';
+const buildLabel='고양이 5품종 · 목덜미 들기 · 사다리';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -27,8 +29,8 @@ function inputReport(){
 }
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',testProfile);}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:app.getVersion(),platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
-function send(){if(!win||win.isDestroyed())return;const value=state(),serialized=JSON.stringify(value);if(serialized===lastSent)return;lastSent=serialized;stateMessages++;for(const view of [win,remote])if(view&&!view.isDestroyed())view.webContents.send('state',value);}
+function state(){const now=Date.now();const view=animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:app.getVersion(),platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
+function send(){if(!win||win.isDestroyed())return;const value=state();if(petDelivery.changed(value)){stateMessages++;win.webContents.send('state',value);}if(remote&&!remote.isDestroyed()&&controllerDelivery.changed(value))remote.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
 const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}},status=>{hookError=inputError(status);send();refresh();});
 function stopInput(){inputMonitor.stop();}
@@ -57,6 +59,7 @@ async function openRemote(){
 function refresh(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
  {label:'리모컨 열기',click:()=>{void openRemote();}},
  {label:options.pet==='cat'?'강아지로 전환':'고양이로 전환',click:togglePet},
+ {label:'고양이 종류',submenu:catBreeds.map(b=>({label:catBreedNames[b],type:'radio' as const,checked:options.catBreed===b,click:()=>apply({pet:'cat',catBreed:b})}))},
  {label:'강아지 종류',submenu:breeds.map(b=>({label:breedNames[b],type:'radio' as const,checked:options.dogBreed===b,click:()=>apply({pet:'dog',dogBreed:b})}))},
  {label:'화질 / 성능',submenu:(['low','medium','high'] as const).map((p,i)=>({label:['저 · 절전','중 · 균형','고 · 모든 효과'][i],type:'radio' as const,checked:options.quality===p,click:()=>apply({preset:p})}))},
  {label:'다중 모니터 이동',type:'checkbox',checked:options.multiMonitor,click:()=>apply({multiMonitor:!options.multiMonitor})},
@@ -202,16 +205,39 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     }
     dogReport.push({breed,actions:11});
    }
+   const catReport=[];
+   for(const breed of catBreeds.filter(b=>b!=='original')){
+    apply({pet:'cat'});await new Promise(r=>setTimeout(r,50));
+    await remote!.webContents.executeJavaScript(`(()=>{const select=document.querySelector('#cat-breed');select.value=${JSON.stringify(breed)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,80));
+    if(options.catBreed!==breed)throw Error('Cat breed mouse selection failed');
+    const selected=await remote!.webContents.executeJavaScript(`document.querySelector('#cat-breed')?.value`);if(selected!==breed)throw Error('Cat breed control not synchronized');
+    if(JSON.parse(readFileSync(settingsPath(),'utf8')).options.catBreed!==breed)throw Error('Cat breed not saved');
+    for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CLIMB_UP','CLIMB_DOWN','CARRY']){
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,120));
+     const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),ladder=document.querySelector('.ladder');return {ready:!!img&&img.complete&&img.naturalWidth===100&&img.getAttribute('src').startsWith('./sprites/cat-'+${JSON.stringify(breed)}+'-'),ladder:ladder?.getAttribute('data-direction'),reverse:img?.dataset.reverse};})()`);
+     if(!loaded.ready)throw Error('Cat action missing: '+breed+' '+action);
+     if(action.startsWith('CLIMB_')&&(loaded.ladder!==(action==='CLIMB_DOWN'?'down':'up')||loaded.reverse!==String(action==='CLIMB_DOWN')))throw Error('Cat ladder direction missing');
+     if(!action.startsWith('CLIMB_')&&loaded.ladder)throw Error('Ladder left behind');
+     if(process.argv.includes('--capture-smoke')&&['IDLE','CARRY','CLIMB_UP','CLIMB_DOWN'].includes(action)){const dir=path.join(app.getAppPath(),'work');mkdirSync(dir,{recursive:true});writeFileSync(path.join(dir,'cat-'+breed+'-'+action+'.png'),(await win.webContents.capturePage()).toPNG());}
+    }
+    startCarry();await new Promise(r=>setTimeout(r,100));
+    const held=await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`);if(!held)throw Error('Cat scruff carry not displayed');finishCarry();
+    catReport.push({breed,actions:11,scruffCarry:true});
+   }
+   apply({pet:'dog'});
    // Isolated textures remain frame-sized at every supported display size.
    for(const size of [.75,1,1.3]){
     apply({size});win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:true});await new Promise(r=>setTimeout(r,120));
     const isolated=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),box=document.querySelector('.sprite');return {width:img.naturalWidth,count:img.dataset.frameCount,transform:getComputedStyle(img).transform,fits:img.getBoundingClientRect().width<=box.getBoundingClientRect().width+.01};})()`);
     if(isolated.width!==100||isolated.count!=='8'||isolated.transform!=='none'||!isolated.fits)throw Error('Dog frame isolation failed at size '+size);
    }
+   // All husky poses were loaded above. Re-entering a motion must reuse decodes.
+   await win.webContents.executeJavaScript(`(()=>{window.__dogDecodeCalls=0;const decode=HTMLImageElement.prototype.decode;HTMLImageElement.prototype.decode=function(){window.__dogDecodeCalls++;return decode.call(this);};})()`);
    win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:true});await new Promise(r=>setTimeout(r,600));
    const walked=await win.webContents.executeJavaScript(`Number(document.querySelector('.sprite img').dataset.frame)`);if(walked===0)throw Error('Dog walk did not advance');
    win.webContents.send('state',{...state(),action:'CLIMB_DOWN',carried:false,animate:true});await new Promise(r=>setTimeout(r,500));
    const descended=await win.webContents.executeJavaScript(`Number(document.querySelector('.sprite img').dataset.frame)`);if(descended>=3)throw Error('Dog ladder did not reverse');
+   const repeatedDogDecodes=await win.webContents.executeJavaScript(`window.__dogDecodeCalls`);if(repeatedDogDecodes!==0)throw Error('Previously loaded dog frames decoded again');
    win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:false});await new Promise(r=>setTimeout(r,500));
    const stopped=await win.webContents.executeJavaScript(`document.querySelector('.sprite img').dataset.frame`);if(stopped!=='0')throw Error('Dog stopped walk kept advancing');
    for(const key of ['wander','effects','restAnimation','sleepAnimation','showCombo','grabEnabled','multiMonitor'] as const){
@@ -229,7 +255,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,mouseSelection:true}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

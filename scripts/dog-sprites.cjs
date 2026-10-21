@@ -1,6 +1,7 @@
 // Extract complete silhouettes, including poses crossing their nominal grid.
 const sharp=require('sharp'),fs=require('node:fs');
 const {splitSilhouettes}=require('./sprite-components.cjs');
+const {writeAsset}=require('./write-asset.cjs');
 const breeds=['chihuahua','jindo','retriever','shiba','husky'];
 const actions={IDLE:[0,1,2,3],JUMP:[8,9],FALL:[10],LAND:[11],DASH:[12,13],ATTACK:[14,15],SLEEP:[16,17],CARRY:[18,19],CLIMB:[20,21,22,23]};
 const median=values=>[...values].sort((a,b)=>a-b)[Math.floor(values.length/2)];
@@ -16,8 +17,8 @@ async function cell(pose,scale,right){
 }
 async function pack(breed,action,cells){
  // Runtime uses independent PNGs: scaled/clipped atlases can sample a neighbor.
- for(let i=0;i<cells.length;i++)await fs.promises.writeFile(`public/sprites/dog-${breed}-${action}-frame-${i}.png`,cells[i]);
- await sharp({create:{width:100*cells.length,height:110,channels:4,background:'#00000000'}}).composite(cells.map((input,i)=>({input,left:i*100,top:0}))).png().toFile(`public/sprites/dog-${breed}-${action}-atlas.png`);
+ for(let i=0;i<cells.length;i++)await writeAsset(`public/sprites/dog-${breed}-${action}-frame-${i}.png`,cells[i]);
+ await writeAsset(`public/sprites/dog-${breed}-${action}-atlas.png`,await sharp({create:{width:100*cells.length,height:110,channels:4,background:'#00000000'}}).composite(cells.map((input,i)=>({input,left:i*100,top:0}))).png().toBuffer());
 }
 async function build(){
  fs.mkdirSync('public/sprites',{recursive:true});

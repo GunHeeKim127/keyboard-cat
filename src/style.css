@@ -15,12 +15,14 @@
 
 .pet-picker{border:1px solid #34435c;border-radius:12px;padding:10px;margin-bottom:12px}.pet-tabs{display:flex;gap:6px}.pet-tabs button{flex:1}.pet-tabs .selected{background:#294468;border-color:#8dbbff}.pet-choice{display:flex;gap:12px;align-items:center;margin-top:8px}.pet-choice>div:last-child{flex:1;min-width:0}.pet-choice label{display:block;font-size:11px;margin-bottom:4px}.pet-choice select{width:100%}.pet-preview{width:64px;height:70px;flex-shrink:0;overflow:hidden}.pet-preview img{height:100%;max-width:none;image-rendering:pixelated;display:block}.pet-choice p{font-size:10px}
 /* Dog body movement follows the longer sprite phases. */
-[data-pet-kind="dog"] .pet.dash{animation-duration:.65s}
-[data-pet-kind="dog"] .pet.attack{animation-duration:.55s}
-[data-pet-kind="dog"] .pet.carry{animation-duration:1.4s}
-[data-pet-kind="dog"] .pet.jump{animation-duration:.8s}
-[data-pet-kind="dog"] .pet.fall{animation-duration:.45s}
-[data-pet-kind="dog"] .pet.land{animation-duration:.45s}
+[data-isolated="true"] .pet.dash{animation-duration:.65s}
+[data-isolated="true"] .pet.attack{animation-duration:.55s}
+[data-isolated="true"] .pet.carry{animation-duration:1.4s}
+[data-isolated="true"] .pet.jump{animation-duration:.8s}
+[data-isolated="true"] .pet.fall{animation-duration:.45s}
+[data-isolated="true"] .pet.land{animation-duration:.45s}
 .avatar-settings select{width:100%;margin-top:0;margin-bottom:6px}
 .name-display-label{display:block;font-size:12px;margin-bottom:6px}.name-display-options{gap:6px}.name-display-options button{flex:1;font-size:11px;padding:9px 5px;white-space:nowrap}.name-display-options .selected{background:#294468;border-color:#8dbbff;color:#fff}
 .name-display-options button[data-name-display="hover"]{flex:2.2}
+
+.ladder{position:absolute;bottom:0;width:24%;height:150%;box-sizing:border-box;border-left:6px solid #8a532e;border-right:6px solid #8a532e;outline:2px solid #3c251d;border-radius:2px;display:flex;flex-direction:column;justify-content:space-around;pointer-events:none;box-shadow:inset 2px 0 #d39a52}.ladder i{display:block;height:5px;background:#c18a4c;border-top:1px solid #e6b974;border-bottom:2px solid #684126}.pet .facing{position:relative;z-index:1}.pet.climb_up .sprite{animation:ladder-up 1.4s linear both}.pet.climb_down .sprite{animation:ladder-down 1.4s linear both}[data-cat-breed="original"][data-pet-kind="cat"] .pet.climb_up .sprite,[data-cat-breed="original"][data-pet-kind="cat"] .pet.climb_down .sprite{animation-duration:.8s}@keyframes ladder-up{from{translate:0 0}to{translate:0 -24px}}@keyframes ladder-down{from{translate:0 -24px}to{translate:0 0}}

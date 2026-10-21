@@ -5,8 +5,8 @@ if exist "node_modules\electron\dist\electron.exe" if exist "dist-electron\main.
   start "" "node_modules\electron\dist\electron.exe" .
   exit /b 0
 )
-if exist "release\windows-1.3.10\win-unpacked\Keyboard Cat.exe" (
-  start "" "release\windows-1.3.10\win-unpacked\Keyboard Cat.exe"
+if exist "release\windows-1.3.11\win-unpacked\Keyboard Cat.exe" (
+  start "" "release\windows-1.3.11\win-unpacked\Keyboard Cat.exe"
   exit /b 0
 )
 

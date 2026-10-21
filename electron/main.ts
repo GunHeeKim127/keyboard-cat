@@ -55,6 +55,7 @@ async function openRemote(){
  const a=screen.getPrimaryDisplay().workArea;
  const panel=new BrowserWindow({title:'Keyboard Cat 리모컨',width:350,height:Math.min(700,a.height),x:a.x+Math.max(0,a.width-362),y:a.y+Math.max(0,a.height-712),resizable:false,show:false,autoHideMenuBar:true,backgroundColor:'#111826',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true,allowRunningInsecureContent:false,webviewTag:false,navigateOnDragDrop:false}});remote=panel;
  secure(panel);panel.on('closed',()=>{if(remote===panel)remote=undefined;});
+ panel.on('focus',()=>{if(process.platform==='darwin'&&!paused&&!suspended&&!quitting&&!smoke)inputMonitor.retryNow();});
  // Opening the controller must not change the position chosen by the user.
  try{await panel.loadFile(path.join(__dirname,'../dist/index.html'),{query:{panel:'1'}});if(!quitting&&!panel.isDestroyed())panel.show();}catch(error){if(!quitting&&!panel.isDestroyed()){panel.destroy();dialog.showErrorBox('리모컨 열기 실패',String(error));}}
 }

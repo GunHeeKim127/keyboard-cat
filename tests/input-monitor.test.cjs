@@ -20,7 +20,7 @@ test('readiness is required and invalid/stale output never changes the combo',t=
 });
 test('pause/quit cancels a pending retry and a missing ready signal times out',t=>{
  const f=fixture(t);f.monitor.start();f.children[0].emit('exit',77);f.monitor.stop();t.mock.timers.tick(5000);assert.equal(f.children.length,1);
- f.monitor.start();t.mock.timers.tick(30000);assert.ok(f.children[1].killed);assert.equal(f.monitor.status,'error');
+ f.monitor.start();t.mock.timers.tick(30000);assert.ok(f.children[1].killed);assert.equal(f.monitor.status,'unavailable');
 });
 test('Windows handshake and count-only compatibility remain supported',t=>{
  const f=fixture(t,'win32');f.monitor.start();f.children[0].stderr.write('RAW_INPUT_READY\n');f.children[0].stdout.write('5\n');assert.equal(f.monitor.status,'ready');assert.deepEqual(f.counts,[5]);
@@ -52,4 +52,18 @@ test('missing helper, executable access denial and readiness timeout have distin
  f.monitor.start();f.children[1].emit('error',Object.assign(new Error('private path'),{code:'EACCES'}));assert.equal(f.monitor.diagnostics.launchError,'permission-denied');
  f.monitor.start();t.mock.timers.tick(30000);assert.equal(f.monitor.diagnostics.timedOut,true);
  assert.ok(!JSON.stringify(f.monitor.diagnostics).includes('private path'));
+});
+
+test('a stale macOS startup times out, retries with a fresh helper, and ignores the old cached result',t=>{
+ const f=fixture(t);f.monitor.start();const old=f.children[0];t.mock.timers.tick(30000);
+ assert.equal(f.monitor.status,'unavailable');assert.equal(f.monitor.diagnostics.timedOut,true);assert.equal(old.killed,true);
+ t.mock.timers.tick(5000);assert.equal(f.children.length,2);assert.deepEqual(f.prompts,[true,false]);
+ old.stderr.write('PERMISSION_REQUIRED\n');old.stdout.write('8\n');old.emit('exit',77);
+ f.children[1].stderr.write('ACCESS_DENIED\nTAP_CREATED\nINPUT_READY\n');f.children[1].stdout.write('3\n');
+ assert.equal(f.monitor.status,'ready');assert.deepEqual(f.counts,[3]);assert.equal(f.monitor.diagnostics.timedOut,false);
+});
+test('a ready macOS helper exiting cleanly recovers; pausing cancels a startup-timeout retry',t=>{
+ const f=fixture(t);f.monitor.start();f.children[0].stderr.write('INPUT_READY\n');f.children[0].emit('exit',0);
+ t.mock.timers.tick(5000);assert.equal(f.children.length,2);assert.equal(f.prompts[1],false);
+ t.mock.timers.tick(30000);f.monitor.stop();t.mock.timers.tick(5000);assert.equal(f.children.length,2);assert.equal(f.monitor.status,'stopped');
 });

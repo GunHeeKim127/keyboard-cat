@@ -23,7 +23,7 @@ export class InputMonitor {
   const finish=(code:number|null,signal?:NodeJS.Signals|null)=>{
    if(this.child!==child)return;
    this.child=undefined;if(this.timeout)clearTimeout(this.timeout);this.timeout=undefined;this.diagnostics.exitCode=code;this.diagnostics.signal=signal||null;
-   const recoverable=this.platform==='darwin'&&(code===77||code===78||signal==='SIGKILL'||signal==='SIGTERM'||this.status==='permission'||this.status==='unavailable');
+   const recoverable=this.platform==='darwin'&&this.diagnostics.launchError==='none'&&(code===77||code===78||(code===0&&this.status==='ready')||signal==='SIGKILL'||signal==='SIGTERM'||this.status==='permission'||this.status==='unavailable');
    this.change(code===77||this.status==='permission'?'permission':code===78||this.status==='unavailable'?'unavailable':'error');
    if(recoverable)this.retry=setTimeout(()=>this.start(false),5000);
   };
@@ -44,7 +44,7 @@ export class InputMonitor {
    const n=Number(line);if(n<1||n>1000)return;
    if(this.status!=='ready')ready();this.onCount(n);
   });
-  this.timeout=setTimeout(()=>{if(this.child===child){this.child=undefined;child.kill();this.timeout=undefined;this.diagnostics.timedOut=true;this.change('error');}},30000);
+  this.timeout=setTimeout(()=>{if(this.child===child){this.child=undefined;child.kill();this.timeout=undefined;this.diagnostics.timedOut=true;this.change(this.platform==='darwin'?'unavailable':'error');if(this.platform==='darwin')this.retry=setTimeout(()=>this.start(false),5000);}},30000);
  }
  stop(){this.clearTimers();const child=this.child;this.child=undefined;child?.kill();this.change('stopped');}
  retryNow(){if(!this.child&&(this.status==='permission'||this.status==='unavailable'))this.start(false);}

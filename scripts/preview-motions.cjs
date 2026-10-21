@@ -20,11 +20,11 @@ async function audit(kind,breeds){
 async function walkGif(kind,breeds){
  const width=800,height=185,frames=[];
  const labels=breeds.map((b,i)=>`<text x="${i*160+30}" y="28">${names[b]}</text>`).join('');
- for(let frame=0;frame<16;frame++){
+ for(let frame=0;frame<8;frame++){
   const parts=[];
   for(const [i,breed]of breeds.entries())parts.push({input:await fs.promises.readFile(file(kind,breed,'WALK',frame)),left:i*160+30,top:48});
   frames.push(await sharp(svg(width,height,labels)).composite(parts).ensureAlpha().raw().toBuffer());
  }
- await sharp(Buffer.concat(frames),{raw:{width,height:height*16,channels:4,pageHeight:height}}).gif({delay:Array(16).fill(100),loop:0,effort:7}).toFile(path.join(directory,`walk-${kind}.gif`));
+ await sharp(Buffer.concat(frames),{raw:{width,height:height*8,channels:4,pageHeight:height}}).gif({delay:Array(8).fill(200),loop:0,effort:7}).toFile(path.join(directory,`walk-${kind}.gif`));
 }
 (async()=>{await audit('cat',cats);await audit('dog',dogs);await walkGif('cat',cats.slice(1));await walkGif('dog',dogs);console.log(directory);})().catch(error=>{console.error(error);process.exitCode=1;});

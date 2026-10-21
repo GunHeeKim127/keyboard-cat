@@ -30,3 +30,5 @@
 /* Small continuous weight shifts; keep frame registration independent of feet. */
 [data-isolated="true"] .sprite img{object-fit:contain;object-position:center bottom}
 .updates{border-top:1px solid #34435c;padding:8px 0;margin:8px 0}.updates pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;font:11px/1.5 inherit;color:#dce6f7;user-select:text}.controller button:disabled{opacity:.6;cursor:wait}
+
+[data-isolated="true"] .pet.walk .sprite{animation:walk-sway var(--walk-cycle) ease-in-out infinite}@keyframes walk-sway{0%,50%,100%{translate:0 0}25%{translate:var(--walk-sway-x) var(--walk-sway-y)}75%{translate:calc(-1 * var(--walk-sway-x)) var(--walk-sway-y)}}

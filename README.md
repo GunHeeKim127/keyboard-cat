@@ -7,7 +7,7 @@
 - Windows 휴대용: `release/windows-1.3.6/Keyboard Cat 1.3.6.exe`. 설치형: `release/windows-1.3.6/Keyboard Cat Setup 1.3.6.exe`. 기존 앱을 완전히 종료한 뒤 새 파일을 실행하세요.
 - 리모컨 위쪽에 **v1.3.6**이 표시되어야 합니다. 1.3.5라고 나오면 이전 파일입니다.
 - `Start Keyboard Cat.cmd`는 빌드된 개발본을 우선 실행하고, 개발 환경이 없으면 v1.3.6 패키지를 실행합니다.
-- Mac은 Apple Silicon·M1 Pro용 arm64, Intel용 x64를 선택합니다. v1.3.6의 성공한 작업과 산출물은 [Mac 빌드 목록](https://github.com/GunHeeKim127/keyboard-cat/actions/workflows/build-macos.yml)에서 커밋/버전을 확인하세요. 이전 v1.3.5 다운로드가 v1.3.6이라는 뜻은 아닙니다.
+- Mac v1.3.6: [Apple Silicon·M1 Pro용 arm64](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39518101211/artifacts/12308352916) · [Intel용 x64](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39518101211/artifacts/12309445805) · [성공한 빌드](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/39518101211). 정확한 세 문구를 반영한 소스 a50b17d이며 두 CPU 빌드·60개 테스트·패키지 검증이 통과했습니다. Artifacts는 GitHub 로그인이 필요할 수 있고 보관 기간은 14일입니다. 실제 Mac의 권한 승인과 물리 입력은 별도 확인 대상입니다.
 - 설치·권한·재설치 안내는 [MACOS.md](MACOS.md)에 있습니다. 프로젝트의 쉬운 PDF는 1.3.5 화면 기준이며 v1.3.6에서는 이름 표시가 리모컨 위쪽 버튼으로 바뀌었습니다.
 - 유료 서명·공증·새 GitHub Release 게시는 수행하지 않습니다.
 
@@ -18,7 +18,7 @@
 3. 다시 보려면 **항상** 또는 **마우스를 올릴 때만** 버튼을 누릅니다. 이름 자체는 삭제되지 않습니다.
 4. 선택은 재실행·반려동물 전환·성능 프리셋 변경 후에도 유지됩니다. 숨기면 마우스를 올려도 이름이 나오지 않습니다.
 
-v1.3.5 수정본에도 숨기기 옵션이 있었지만 선택 목록 안에 있었고 같은 버전의 파일들이 있어 구분하기 어려웠습니다. v1.3.6에서는 첫 화면의 **항상 / 마우스를 올릴 때만 / 숨기기** 세 버튼과 버전 번호로 확인할 수 있습니다. 이전 Windows 설치 파일은 새 빌드·실행 검증 후 정리하며 소스·이미지·Markdown·사용자 설정은 보존합니다.
+v1.3.5는 이름 표시 기능 추가 전후 빌드가 같은 버전으로 존재했습니다. 실제 실행 중인 이전 v1.3.5에서 이름 표시 설정이 없는 것을 확인했습니다. 기능 추가 후 수정본에서는 선택 목록 안에 있어 찾기 어려웠습니다. v1.3.6에서는 첫 화면의 **항상 / 마우스를 올릴 때만 / 숨기기** 세 버튼과 버전 번호로 확인할 수 있습니다. Windows v1.3.6 빌드·실행·무결성 검증 후 프로젝트와 제공용 출력 폴더의 이전 v1.3.5 설치 파일 및 생성 패키지를 정리했습니다. 소스·이미지·Markdown·사용자 설정은 보존했습니다.
 
 ## 1.3.5 강아지 모션 수정
 

@@ -1,9 +1,9 @@
 // A generated sheet can cross its nominal grid. Label complete alpha silhouettes
 // first, then assign each silhouette by its centroid, rather than clipping cells.
-function splitSilhouettes(data,width,height,columns,rows,{threshold=32,minArea=800}={}){
+function splitSilhouettes(data,width,height,columns,rows,{threshold=32,minArea=800,ordered=false}={}){
  if(data.length!==width*height*4)throw Error('Expected RGBA sprite sheet');
  const labels=new Int32Array(width*height),queue=new Int32Array(width*height),slots=Array(columns*rows).fill(null);
- let id=0;
+ let id=0;const found=[];
  for(let p=0;p<labels.length;p++){
   if(labels[p]||data[p*4+3]<threshold)continue;
   id++;let length=1,head=0,left=width,top=height,right=0,bottom=0,sumX=0,sumY=0;queue[0]=p;labels[p]=id;
@@ -16,9 +16,12 @@ function splitSilhouettes(data,width,height,columns,rows,{threshold=32,minArea=8
   }
   if(length<minArea)continue;
   const centerX=sumX/length,centerY=sumY/length,index=Math.min(rows-1,Math.floor(centerY/height*rows))*columns+Math.min(columns-1,Math.floor(centerX/width*columns));
+  const component={id,left,top,right,bottom,centerX,centerY,area:length};
+  if(ordered){found.push(component);continue;}
   if(slots[index])throw Error(`Multiple silhouettes in sprite slot ${index}`);
-  slots[index]={id,left,top,right,bottom,centerX,centerY,area:length};
+  slots[index]=component;
  }
+ if(ordered){if(found.length!==columns*rows)throw Error(`Expected ${columns*rows} ordered cutouts, found ${found.length}`);found.sort((a,b)=>a.centerX-b.centerX).forEach((s,i)=>slots[i]=s);}
  if(slots.some(s=>!s))throw Error('Missing sprite silhouette');
  return slots.map(s=>{
   const w=s.right-s.left+1,h=s.bottom-s.top+1,rgba=Buffer.alloc(w*h*4);

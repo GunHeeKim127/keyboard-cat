@@ -1,4 +1,5 @@
 import {app,BrowserWindow,Tray,Menu,nativeImage,ipcMain,screen,dialog,session,powerMonitor,shell,clipboard} from 'electron';
+import {UpdateChecker} from './updates';
 import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -21,7 +22,8 @@ let stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='귀여운 보행 · 자연스러운 흔들림 · 크기 점검';
+const buildLabel='네 다리 보행 · 16프레임 · 업데이트 확인';
+const updates=new UpdateChecker(app.getVersion(),process.platform,process.arch,!!process.env.PORTABLE_EXECUTABLE_FILE,undefined,url=>shell.openExternal(url));
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -84,6 +86,11 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   localSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isAppResource(d.url,distRoot)}));
   const trusted=(e:Electron.IpcMainEvent|Electron.IpcMainInvokeEvent)=>{const sender=e.sender;return !quitting&&!win.isDestroyed()&&!sender.isDestroyed()&&(sender===win.webContents||(!!remote&&!remote.isDestroyed()&&sender===remote.webContents))&&isTrustedFrame(sender,e.senderFrame,indexFile);};
   ipcMain.handle('snapshot',e=>{if(trusted(e))return state();});
+  ipcMain.handle('updates',async(e,action:unknown)=>{
+   if(quitting||!trusted(e)||e.sender!==remote?.webContents)return undefined;
+   try{if(action==='check')return await updates.check();if(action==='download')return await updates.download();if(action==='notes')return await updates.openNotes();}catch{return false;}
+   return undefined;
+  });
   ipcMain.on('options',(e,p)=>{if(trusted(e)&&e.sender===remote?.webContents)apply(p);});
   ipcMain.on('hover',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'&&!moving&&!carried)win.setIgnoreMouseEvents(!(options.grabEnabled&&on===true),{forward:true});});
   ipcMain.on('carry',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'){if(on===true)startCarry();else finishCarry();}});
@@ -125,6 +132,12 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    const monitorReport={toggleSaved:true,primaryConstraint:true,nativeMoveConstrained:true,presetPreserved:true,reEnabled:true,displayCount:screen.getAllDisplays().length};
    const report=await win.webContents.executeJavaScript(`new Promise(resolve=>{const check=()=>{const img=document.querySelector('img');if(img&&img.complete&&img.naturalWidth>0)resolve({ready:!!window.cat,width:img.naturalWidth});else setTimeout(check,50);};check();setTimeout(()=>resolve({ready:false}),5000);})`);
    const panelReport=await remote!.webContents.executeJavaScript(`new Promise(resolve=>setTimeout(()=>resolve({presets:document.querySelectorAll('[data-preset]').length,toggles:document.querySelectorAll('input[type=checkbox]').length,scroll:document.documentElement.scrollHeight>innerHeight}),200))`);
+   const updateButton=await remote!.webContents.executeJavaScript(`(()=>{const b=document.querySelector('[data-update-check]');return !!b&&b.textContent==='업데이트 확인'&&!b.disabled;})()`);
+   if(!updateButton)throw Error('Update check control missing');
+   const petUpdate=await win.webContents.executeJavaScript(`window.cat.updates('check')`);
+   if(petUpdate!==undefined)throw Error('Pet accessed controller-only updates');
+   const invalidUpdate=await remote!.webContents.executeJavaScript(`window.cat.updates('https://evil.example')`);
+   if(invalidUpdate!==undefined)throw Error('Unknown update action accepted');
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
    await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));
    const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(app.getVersion())})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+app.getVersion())};})()`);
@@ -196,7 +209,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      if(!loaded)throw Error('Dog animation failed: '+breed+' '+action);
      if(action.startsWith('CLIMB_')){const previousLadder=await win.webContents.executeJavaScript(`({extra:!!document.querySelector('.ladder'),movement:getComputedStyle(document.querySelector('.sprite')).animationName})`);if(previousLadder.extra||previousLadder.movement!=='none')throw Error('Dog ladder has extra prop or movement');}
      const timing=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),style=getComputedStyle(img);return {duration:Number(img.dataset.cycleDuration),name:style.animationName,width:img.naturalWidth,frames:Number(img.dataset.frameCount)};})()`);
-     if(action==='WALK'&&(timing.width!==100||timing.frames!==8))throw Error('Dog walk needs eight frames');
+     if(action==='WALK'&&(timing.width!==100||timing.frames!==16))throw Error('Dog walk needs sixteen frames');
      if(action==='WALK'){const sway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(sway!=='walk-sway')throw Error('Dog natural sway missing');}
      if((action==='FALL'||action==='LAND')&&timing.name!=='none')throw Error('Single pose should hold still');
      if(action==='SLEEP'&&timing.duration<2.4)throw Error('Dog sleep cycle too fast');
@@ -239,7 +252,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    for(const size of [.75,1,1.3]){
     apply({size});win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:true});await new Promise(r=>setTimeout(r,120));
     const isolated=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),box=document.querySelector('.sprite');return {width:img.naturalWidth,count:img.dataset.frameCount,transform:getComputedStyle(img).transform,fits:img.getBoundingClientRect().width<=box.getBoundingClientRect().width+.01};})()`);
-    if(isolated.width!==100||isolated.count!=='8'||isolated.transform!=='none'||!isolated.fits)throw Error('Dog frame isolation failed at size '+size);
+    if(isolated.width!==100||isolated.count!=='16'||isolated.transform!=='none'||!isolated.fits)throw Error('Dog frame isolation failed at size '+size);
    }
    const aspectReport=[];
    for(const pet of ['cat','dog'] as const)for(const size of [.75,1,1.3]){

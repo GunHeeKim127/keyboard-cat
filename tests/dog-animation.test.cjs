@@ -6,8 +6,8 @@ test('short dog cycles hold each pose and respect a lower user FPS',()=>{
  assert.equal(spriteDuration('dog','ATTACK',2,12),.9);
  assert.equal(spriteDuration('dog','SLEEP',2,12),2.4);
  assert.equal(spriteDuration('dog','CARRY',2,12),1.3);
- assert.equal(spriteDuration('dog','WALK',8,12),.8);
- assert.equal(spriteDuration('dog','WALK',8,5),1.6);
+ assert.equal(spriteDuration('dog','WALK',16,12),1.6);
+ assert.equal(spriteDuration('dog','WALK',16,5),1.6);
  assert.equal(spriteDuration('cat','ATTACK',5,12),5/12);
 });
 test('dog combo phases remain visible through jump, fall, landing and both ladder directions',()=>{

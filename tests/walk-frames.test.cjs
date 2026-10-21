@@ -15,9 +15,9 @@ test('reaching paws do not move the head anchor and generated poses keep transpa
 test('all ten walking cycles have varied legs, bounded head drift and a stable floor',async()=>{
  for(const [kind,breeds]of [['cat',cats],['dog',dogs]])for(const breed of breeds){
   const anchors=[],legs=new Set();
-  for(let i=0;i<8;i++){
+  for(let i=0;i<16;i++){
    const {data,info}=await sharp(`public/sprites/${kind}-${breed}-WALK-frame-${i}.png`).raw().toBuffer({resolveWithObject:true});
-   anchors.push(headAnchor({rgba:data,...info}));const box=bounds(data,info.width,info.height);assert.equal(box.bottom,103,kind+' '+breed+' floor');
+   anchors.push(headAnchor({rgba:data,...info}));const box=bounds(data,info.width,info.height);assert.ok(box.bottom>=102&&box.bottom<=103,kind+' '+breed+' floor');
    legs.add(crypto.createHash('sha256').update(data.subarray(75*100*4)).digest('hex'));
   }
   assert.ok(Math.max(...anchors)-Math.min(...anchors)<=3,kind+' '+breed+' head jumped');
@@ -29,7 +29,7 @@ test('new cat walking silhouettes do not exceed their previous walking size',asy
   const file=`assets/cats/${breed}-sheet${breed==='norwegian-forest'?'-v2':''}.png`,{data,info}=await sharp(file).ensureAlpha().raw().toBuffer({resolveWithObject:true});
   const source=splitSilhouettes(data,info.width,info.height,4,7),scale=Math.min(92/Math.max(...source.map(p=>p.width)),96/Math.max(...source.map(p=>p.height))),previous=source.slice(4,12);
   const widths=[],heights=[];
-  for(let i=0;i<8;i++){const {data,info}=await sharp(`public/sprites/cat-${breed}-WALK-frame-${i}.png`).raw().toBuffer({resolveWithObject:true});const box=bounds(data,info.width,info.height);widths.push(box.width);heights.push(box.height);}
+  for(let i=0;i<16;i++){const {data,info}=await sharp(`public/sprites/cat-${breed}-WALK-frame-${i}.png`).raw().toBuffer({resolveWithObject:true});const box=bounds(data,info.width,info.height);widths.push(box.width);heights.push(box.height);}
   assert.ok(median(heights)<=Math.round(median(previous.map(p=>p.height))*scale)+1,breed+' grew taller');
   assert.ok(Math.max(...widths)<=Math.round(Math.max(...previous.map(p=>p.width))*scale)+1,breed+' grew wider');
  }

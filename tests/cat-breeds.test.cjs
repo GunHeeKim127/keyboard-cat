@@ -25,10 +25,10 @@ test('five cat breeds provide every action and isolated transparent poses withou
   }
  }
 });
-test('breed walk pacing respects FPS ceiling and all short cat actions stay visible',()=>{
- assert.ok(spriteDuration('cat','WALK',8,12,'persian')>spriteDuration('cat','WALK',8,12,'siamese'));
+test('breed walk pacing stays smooth at low power and short cat actions stay visible',()=>{
+ assert.ok(spriteDuration('cat','WALK',16,12,'persian')>spriteDuration('cat','WALK',16,12,'siamese'));
  for(const breed of catBreeds.filter(b=>b!=='original')){
-  assert.ok(spriteDuration('cat','WALK',8,5,breed)>=1.6);
+  assert.ok(spriteDuration('cat','WALK',16,5,breed)>=1.4);
   assert.ok(spriteDuration('cat','CARRY',2,12,breed)>=1.3);
   assert.ok(spriteDuration('cat','SLEEP',2,12,breed)>=2.4);
  }

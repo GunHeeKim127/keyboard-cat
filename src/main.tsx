@@ -2,10 +2,11 @@ import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './style.css';
 import type {NameDisplay} from '../electron/options';
+import type {UpdateInfo} from '../electron/updates';
 import {DogBreed,PetKind,CatBreed,catBreeds,catBreedNames,catBreedTraits,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
 type Options={pet:PetKind;dogBreed:DogBreed;catBreed:CatBreed;avatarName:string;nameDisplay:NameDisplay;quality:string;size:number;fps:number;wander:boolean;effects:boolean;restAnimation:boolean;sleepAnimation:boolean;showCombo:boolean;grabEnabled:boolean;multiMonitor:boolean};
 type State={buildLabel:string;diagnosticReport:string;version:string;platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
-declare global {interface Window{cat:{snapshot:()=>Promise<State>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
+declare global {interface Window{cat:{snapshot:()=>Promise<State>;updates:(action:'check'|'download'|'notes')=>Promise<UpdateInfo|boolean|undefined>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
 // Each generated pet frame has its own texture, so fractional sizes cannot reveal adjacent poses.
 // Assets are a fixed, finite set. Retain successful decodes across motion changes.
 const frameTextures=new Map<string,Promise<HTMLImageElement>>();
@@ -39,6 +40,12 @@ function PetPicker({options:o}:{options:Options}){
  const preview=spriteFor(o.pet,o.dogBreed,'IDLE',o.catBreed);
  return <section className="pet-picker" aria-label="반려동물 선택"><div className="pet-tabs">{(['cat','dog'] as const).map(p=><button key={p} data-pet={p} aria-pressed={o.pet===p} className={o.pet===p?'selected':''} onClick={()=>window.cat.options({pet:p})}>{p==='cat'?'고양이':'강아지'}</button>)}</div><div className="pet-choice"><div className="pet-preview"><img src={(o.pet==='dog'||o.catBreed!=='original')?preview.src.replace('-atlas.png','-frame-0.png'):preview.src} alt={o.pet==='cat'?catBreedNames[o.catBreed]:breedNames[o.dogBreed]} style={{width:((o.pet==='dog'||o.catBreed!=='original')?100:preview.frames*100)+'%'}}/></div><div>{o.pet==='dog'?<><label htmlFor="dog-breed">강아지 종류</label><select id="dog-breed" value={o.dogBreed} onChange={e=>window.cat.options({dogBreed:e.target.value})}>{breeds.map(b=><option key={b} value={b}>{breedNames[b]}</option>)}</select><p>{breedTraits[o.dogBreed]}</p></>:<><label htmlFor="cat-breed">고양이 종류</label><select id="cat-breed" value={o.catBreed} onChange={e=>window.cat.options({catBreed:e.target.value})}>{catBreeds.map(b=><option key={b} value={b}>{catBreedNames[b]}</option>)}</select><p>{catBreedTraits[o.catBreed]}</p></>}</div></div><p className="hint">마우스로 고양이·강아지와 품종을 선택해요. 마지막 선택은 저장됩니다.</p></section>;
 }
+function Updates(){
+ const [info,setInfo]=useState<UpdateInfo>(),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ async function check(){setBusy(true);setNotice('');try{const result=await window.cat.updates('check');if(result&&typeof result==='object')setInfo(result);else setNotice('업데이트를 확인하지 못했어요. 잠시 후 다시 눌러 주세요.');}catch{setNotice('업데이트를 확인하지 못했어요.');}finally{setBusy(false);}}
+ async function open(action:'download'|'notes'){setBusy(true);try{const ok=await window.cat.updates(action);setNotice(ok?(action==='download'?'브라우저에서 다운로드가 시작돼요. 받은 뒤 앱을 종료하고 새 파일로 교체하세요.':'브라우저에서 릴리스 내용을 열었어요.'):'브라우저를 열지 못했어요. 잠시 후 다시 눌러 주세요.');}catch{setNotice('브라우저를 열지 못했어요.');}finally{setBusy(false);}}
+ return <section className="updates" aria-label="앱 업데이트"><div className="controls"><button data-update-check disabled={busy} onClick={()=>void check()}>{busy?'확인 중…':'업데이트 확인'}</button><button disabled={busy} onClick={()=>void open('notes')}>릴리스 내용</button></div>{info&&<p role="status">{info.version&&<b>v{info.version} · </b>}{info.message}</p>}{info?.status==='available'&&info.downloadReady&&<button data-update-download disabled={busy} onClick={()=>void open('download')}>새 버전 다운로드</button>}{info?.status==='available'&&info.notes&&<details><summary>변경 내용 보기</summary><pre>{info.notes}</pre></details>}{notice&&<p role="status">{notice}</p>}<p>버튼을 누르면 GitHub의 정식 릴리스를 확인해요. 다운로드 후 기존 앱을 종료하고 교체해 주세요.</p></section>;
+}
 function Controller({s}:{s:State}){
  const o=s.options,labels:Record<string,string>={low:'저 · 절전',medium:'중 · 균형',high:'고 · 풍성하게',custom:'사용자 설정'};
  return <div className="controller"><header><div className="eyebrow">DESKTOP COMPANION</div><h1>Keyboard Cat <span>리모컨</span></h1><p>내 PC에 맞게 가볍게, 또는 풍성하게. <span data-app-version>v{s.version}</span> · {s.buildLabel}</p></header>
@@ -52,6 +59,7 @@ function Controller({s}:{s:State}){
   {s.platform==='darwin'&&<div className="mac-permission"><button onClick={()=>window.cat.command('input-settings')}>입력 모니터링 권한 설정</button><p className="hint">시스템 설정에서 현재 설치한 Keyboard Cat의 입력 모니터링을 허용하세요. 5초 간격으로 자동 재연결하며, macOS가 요구하면 앱을 완전히 종료 후 다시 실행하세요. 권한이 없어도 고양이와 리모컨은 사용할 수 있어요.</p></div>}
   <div className={`connection ${s.hookError?'error':''}`}>{s.hookError|| (s.paused?'● 입력 감지 일시정지':s.inputReady?'● 입력 감지 준비 완료':'● 입력 감지 연결 확인 중')}</div>
   <details className="input-diagnostics"><summary>입력 진단 · 이전 앱 확인</summary><p className="hint">설치 위치와 연결 오류만 확인합니다. 키 내용은 포함하지 않습니다. 경로에 사용자 이름이 있을 수 있으니 공유 전에 확인하세요.</p><div className="controls"><button onClick={()=>window.cat.command('input-diagnostics')}>상태 확인</button><button onClick={()=>window.cat.command('copy-diagnostics')}>진단 복사</button></div>{s.diagnosticReport&&<textarea aria-label="입력 연결 진단" readOnly value={s.diagnosticReport}/>}</details>
+  <Updates/>
   <footer><button onClick={()=>window.cat.command('hide')}>리모컨 숨기기</button><button onClick={()=>window.cat.command('quit')}>앱 종료</button></footer>
   <p className="hint bottom-note">숨긴 리모컨은 트레이 고양이를 더블클릭하면 열려요.</p>
  </div>;

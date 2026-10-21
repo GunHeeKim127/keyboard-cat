@@ -1,3 +1,4 @@
+import gait from './walk-gait.json';
 export const breeds=['chihuahua','jindo','retriever','shiba','husky'] as const;
 export type DogBreed=typeof breeds[number];
 export type PetKind='cat'|'dog';
@@ -14,11 +15,12 @@ export const dogFrames:Record<string,number>={IDLE:4,WALK:16,JUMP:2,DASH:2,ATTAC
 export function spriteDuration(pet:PetKind,action:string,frames:number,fps:number,catBreed:CatBreed='original'){
  if(pet==='cat'&&catBreed==='original')return frames/(action==='SLEEP'?2.5:fps);
  // More in-between poses, same 1.6-second stride even at the low-power preset.
- if(action==='WALK')return 1.6*(pet==='cat'?({original:1,ragdoll:1.1,'russian-blue':1,'norwegian-forest':1,siamese:.9,persian:1.2}[catBreed]):1);
+ if(action==='WALK')return gait.baseCycleSeconds*(pet==='cat'?({original:1,ragdoll:1.1,'russian-blue':1,'norwegian-forest':1,siamese:.9,persian:1.2}[catBreed]):1);
  const hold:Record<string,number>={IDLE:500,WALK:100,JUMP:400,DASH:350,ATTACK:450,SLEEP:1200,CARRY:650,CLIMB_UP:350,CLIMB_DOWN:350,FALL:450,LAND:500};
  const pace=pet==='cat'&&(action==='WALK'||action==='IDLE')?({original:1,ragdoll:1.1,'russian-blue':1,'norwegian-forest':1,siamese:.9,persian:1.2}[catBreed]):1;
  return frames*Math.max(1000/fps,(hold[action]??500)*pace)/1000;
 }
+export function walkingSpeed(pet:PetKind,catBreed:CatBreed,size:number){return pet==='cat'&&catBreed==='original'?30:gait.stridePixels/(gait.stance*spriteDuration(pet,'WALK',16,10,catBreed))*112*size/110;}
 export function isDogBreed(value:unknown):value is DogBreed{return typeof value==='string'&&(breeds as readonly string[]).includes(value);}
 export function spriteFor(pet:PetKind,breed:DogBreed,action:string,catBreed:CatBreed='original'){
  const selected=isCatBreed(catBreed)?catBreed:'original',isolated=pet==='dog'||selected!=='original';

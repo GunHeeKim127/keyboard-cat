@@ -21,7 +21,7 @@ let stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
-const buildLabel='고양이 5품종 · 목덜미 들기 · 사다리';
+const buildLabel='고양이 사다리 크기 수정 · 강아지 사다리 복원';
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -171,6 +171,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     effect=Number(testEffect);effectAt=Date.now()-Number(age);send();await new Promise(r=>setTimeout(r,80));
     const frame=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return {src:img?.getAttribute('src'),width:img?.naturalWidth,direction:img?getComputedStyle(img).animationDirection:''};})()`);
     if(state().action!==action||!frame.src?.endsWith(String(atlas)+'-atlas.png')||!frame.width||(action==='CLIMB_DOWN'&&frame.direction!=='reverse'))throw Error('Extra animation failed: '+action);
+    if(action.startsWith('CLIMB_')){const originalLadder=await win.webContents.executeJavaScript(`({extra:!!document.querySelector('.ladder'),movement:getComputedStyle(document.querySelector('.sprite')).animationName})`);if(originalLadder.extra||originalLadder.movement!=='none')throw Error('Original cat ladder was changed');}
     extraAnimations.push({action,...frame});
     if(process.argv.includes('--capture-smoke')){const dir=path.join(app.getAppPath(),'work');mkdirSync(dir,{recursive:true});writeFileSync(path.join(dir,String(action)+'.png'),(await win.webContents.capturePage()).toPNG());}
    }
@@ -193,6 +194,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,100));
      const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return !!img&&img.complete&&img.naturalWidth>0&&img.getAttribute('src').startsWith('./sprites/dog-'+${JSON.stringify(breed)}+'-');})()`);
      if(!loaded)throw Error('Dog animation failed: '+breed+' '+action);
+     if(action.startsWith('CLIMB_')){const previousLadder=await win.webContents.executeJavaScript(`({extra:!!document.querySelector('.ladder'),movement:getComputedStyle(document.querySelector('.sprite')).animationName})`);if(previousLadder.extra||previousLadder.movement!=='none')throw Error('Dog ladder has extra prop or movement');}
      const timing=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),style=getComputedStyle(img);return {duration:Number(img.dataset.cycleDuration),name:style.animationName,width:img.naturalWidth,frames:Number(img.dataset.frameCount)};})()`);
      if(action==='WALK'&&(timing.width!==100||timing.frames!==8))throw Error('Dog walk needs eight frames');
      if((action==='FALL'||action==='LAND')&&timing.name!=='none')throw Error('Single pose should hold still');
@@ -214,15 +216,21 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(JSON.parse(readFileSync(settingsPath(),'utf8')).options.catBreed!==breed)throw Error('Cat breed not saved');
     for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CLIMB_UP','CLIMB_DOWN','CARRY']){
      win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,120));
-     const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),ladder=document.querySelector('.ladder');return {ready:!!img&&img.complete&&img.naturalWidth===100&&img.getAttribute('src').startsWith('./sprites/cat-'+${JSON.stringify(breed)}+'-'),ladder:ladder?.getAttribute('data-direction'),reverse:img?.dataset.reverse};})()`);
+     const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),ladder=document.querySelector('.ladder');return {ready:!!img&&img.complete&&img.naturalWidth===100&&img.getAttribute('src').startsWith('./sprites/cat-'+${JSON.stringify(breed)}+'-'),ladder:ladder?.getAttribute('data-direction'),reverse:img?.dataset.reverse,ladderRatio:ladder?ladder.getBoundingClientRect().height/document.querySelector('.pet').getBoundingClientRect().height:0};})()`);
      if(!loaded.ready)throw Error('Cat action missing: '+breed+' '+action);
      if(action.startsWith('CLIMB_')&&(loaded.ladder!==(action==='CLIMB_DOWN'?'down':'up')||loaded.reverse!==String(action==='CLIMB_DOWN')))throw Error('Cat ladder direction missing');
+     if(action.startsWith('CLIMB_')&&Math.abs(loaded.ladderRatio-.72)>.02)throw Error('Cat ladder too tall');
      if(!action.startsWith('CLIMB_')&&loaded.ladder)throw Error('Ladder left behind');
      if(process.argv.includes('--capture-smoke')&&['IDLE','CARRY','CLIMB_UP','CLIMB_DOWN'].includes(action)){const dir=path.join(app.getAppPath(),'work');mkdirSync(dir,{recursive:true});writeFileSync(path.join(dir,'cat-'+breed+'-'+action+'.png'),(await win.webContents.capturePage()).toPNG());}
     }
     startCarry();await new Promise(r=>setTimeout(r,100));
     const held=await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`);if(!held)throw Error('Cat scruff carry not displayed');finishCarry();
     catReport.push({breed,actions:11,scruffCarry:true});
+   }
+   for(const size of [.75,1,1.3])for(const facing of [-1,1]){
+    apply({size});win.webContents.send('state',{...state(),action:'CLIMB_UP',carried:false,animate:true,facing});await new Promise(r=>setTimeout(r,100));
+    const ladder=await win.webContents.executeJavaScript(`(()=>{const l=document.querySelector('.ladder'),p=document.querySelector('.pet');return {ratio:l.getBoundingClientRect().height/p.getBoundingClientRect().height,left:l.getBoundingClientRect().left,petLeft:p.getBoundingClientRect().left,petRight:p.getBoundingClientRect().right,right:l.getBoundingClientRect().right};})()`);
+    if(Math.abs(ladder.ratio-.72)>.02||ladder.left<ladder.petLeft||ladder.right>ladder.petRight)throw Error('Cat ladder size or facing failed');
    }
    apply({pet:'dog'});
    // Isolated textures remain frame-sized at every supported display size.

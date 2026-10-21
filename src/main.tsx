@@ -71,7 +71,7 @@ function App(){
    onPointerDown={e=>{if(e.button===0&&o.grabEnabled&&!s.moving){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);window.cat.carry(true);}}}
    onPointerUp={e=>{window.cat.carry(false);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
    onPointerCancel={()=>window.cat.carry(false)} onLostPointerCapture={()=>window.cat.carry(false)}>
-   {!s.carried&&s.animate&&s.action.startsWith('CLIMB_')&&<div className="ladder" aria-label="사다리" data-direction={s.action==='CLIMB_DOWN'?'down':'up'} style={{left:s.facing<0?'10%':'66%'}}><i/><i/><i/><i/><i/></div>}
+   {o.pet==='cat'&&o.catBreed!=='original'&&!s.carried&&s.animate&&s.action.startsWith('CLIMB_')&&<div className="ladder" aria-label="사다리" data-direction={s.action==='CLIMB_DOWN'?'down':'up'} style={{left:s.facing<0?'10%':'66%'}}><i/><i/><i/><i/><i/></div>}
    <div className="facing" style={{transform:`scaleX(${s.facing})`}}>{s.carried&&!isolated?<img className="carry-image" src="./sprites/carry.png" draggable={false}/>:<div className="sprite">{isolated?<FrameSprite key={spriteKey} src={visual.src} frames={n} duration={duration} animate={s.carried?!s.paused:s.animate} reverse={s.action==='CLIMB_DOWN'}/>:<img key={spriteKey} src={visual.src} draggable={false} style={{width:`${n*100}%`,animation:(n>1)&&s.animate?`frames ${duration}s steps(${n}) infinite ${s.action==='CLIMB_DOWN'?'reverse':'normal'}`:'none'}}/>}</div>}</div>
    {(o.nameDisplay==='always'||(o.nameDisplay==='hover'&&hovered))&&<div className="avatar-name" role={o.nameDisplay==='hover'?'tooltip':undefined}>{o.avatarName}</div>}
   </div>

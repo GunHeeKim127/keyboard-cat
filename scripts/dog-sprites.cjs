@@ -28,7 +28,7 @@ async function build(){
   const scale=Math.min(92/Math.max(...original.map(p=>p.width)),96/Math.max(...original.map(p=>p.height)));
   const cells=await Promise.all(original.map(p=>cell(p,scale)));
   for(const [action,indices]of Object.entries(actions))await pack(breed,action,indices.map(i=>cells[i]));
-  const walk=await poses(`assets/dogs/${breed}-walk-v6-sheet.png`,2),idle=original.slice(0,4);
+  const walk=await poses(`assets/dogs/${breed}-walk-v7-sheet.png`,2),idle=original.slice(0,4);
   const headX=median(idle.map(p=>Math.round((100-Math.round(p.width*scale))/2)+headAnchor(p)*scale));
   await pack(breed,'WALK',await walkFrames(walk,median(idle.map(p=>p.height))*scale,90,headX));
  }

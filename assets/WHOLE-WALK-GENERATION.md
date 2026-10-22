@@ -1,5 +1,15 @@
 # v1.3.13 완성 이미지 보행 제작
 
+## v1.3.14 비율 수정
+
+v1.3.13의 `*-walk-v6-sheet.png`를 편집 대상으로 사용해 10품종 모두 `*-walk-v7-sheet.png`를 만들었습니다. 발걸음은 개선됐으나 다른 모션보다 다리가 길고 몸통이 가늘어 보인다는 사용자 피드백을 반영했습니다. 다리를 잘라 붙이거나 전체 그림을 눌러 줄이지 않고, 매 자세의 몸통·배·어깨·허벅지·다리를 전체 그림 안에서 다시 그렸습니다. 머리·눈·귀 크기와 품종 정체성, 발의 디딤/되돌림 순서, 4열×2행·8자세는 보존하도록 지시했습니다.
+
+수정 공통 지시의 핵심: “PROPORTION CORRECTION ONLY. The current legs are visibly too long and thin compared with the character's other game motions. Redraw ALL EIGHT animals with cute shorter, chubbier legs: reduce visible belly-to-paw clearance by about 30 percent, make torso deeper and rounder by lowering the belly, add a little soft thigh/shoulder fullness. Keep the back/top of torso, head size, ear size, facial identity, tail, total body width, and ground line nearly unchanged. Do NOT just resize the whole sprite. Head and eyes must not grow. Paw endpoints must retain each frame's distinct forward/backward support and low swing positions.”
+
+30%는 이미지 편집의 목표 지시이며 해부학적으로 측정된 일률적인 단축률을 뜻하지 않습니다. 품종·털 길이·자세에 따라 실제 표현이 다릅니다. 털이 긴 고양이는 발끝이 털에 완전히 가려지지 않도록 추가 지시했고, 시바견은 과도하게 비만한 몸통을 피하도록 했습니다. 시안 원본 → 앱 프레임 80개 → 기존 대기/점프/착지·이전 보행과 나란히 비교하는 순서로 검토했습니다. `scripts/review-proportions.cjs`가 이 비교 그림을 재생성합니다.
+
+아래 v1.3.13 기록은 보행 순서를 개선했던 이전 단계의 이력입니다.
+
 ## 최종 방식
 
 v1.3.9의 8프레임 전체 이미지 처리로 복원했습니다. 몸통·다리 분리 이미지와 관절·메쉬 생성은 사용하지 않습니다. 각 원본은 4열 × 2행, 8개의 완성된 동물 자세와 투명 여백을 포함합니다. 새 원본은 `cats/<breed>-walk-v6-sheet.png`, `dogs/<breed>-walk-v6-sheet.png`입니다. 기존 v4/v5 시트는 비교·복원을 위해 보존합니다. Original과 보행 외 원본은 바꾸지 않습니다.

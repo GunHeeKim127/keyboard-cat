@@ -15,7 +15,7 @@ function loadFrame(url:string){
  if(!loaded){const img=new Image();img.src=url;loaded=img.decode().then(()=>img);frameTextures.set(url,loaded);loaded.catch(()=>frameTextures.delete(url));}
  return loaded;
 }
-function FrameSprite({src,frames,duration,animate,reverse=false}:{src:string;frames:number;duration:number;animate:boolean;reverse?:boolean}){
+const FrameSprite=React.memo(function FrameSprite({src,frames,duration,animate,reverse=false}:{src:string;frames:number;duration:number;animate:boolean;reverse?:boolean}){
  const first=reverse?frames-1:0,[frame,setFrame]=useState(first);
  useEffect(()=>{
   let disposed=false,timer:ReturnType<typeof setInterval>|undefined;
@@ -29,7 +29,7 @@ function FrameSprite({src,frames,duration,animate,reverse=false}:{src:string;fra
   return()=>{disposed=true;if(timer!==undefined)clearInterval(timer);};
  },[src,frames,duration,animate,reverse]);
  return <img src={src.replace('-atlas.png','-frame-'+frame+'.png')} draggable={false} data-frame={frame} data-frame-count={frames} data-cycle-duration={duration} data-playing={animate&&frames>1} data-reverse={reverse} style={{width:'100%',animation:'none'}}/>;
-}
+});
 function AvatarName({name,display}:{name:string;display:NameDisplay}){
  const [draft,setDraft]=useState(name);
  useEffect(()=>setDraft(name),[name]);

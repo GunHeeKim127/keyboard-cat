@@ -49,7 +49,7 @@ function togglePause(){paused=!paused;combo.reset();effect=0;effectAt=0;lastHit=
 function center(){const a=screen.getPrimaryDisplay().workArea;positionWindow(a.x+a.width-650,a.y+a.height-280);save();}
 function secure(view:BrowserWindow){view.webContents.setWindowOpenHandler(()=>({action:'deny'}));view.webContents.on('will-navigate',e=>e.preventDefault());view.webContents.on('will-frame-navigate',e=>e.preventDefault());view.webContents.on('will-redirect',e=>e.preventDefault());view.webContents.on('will-attach-webview',e=>e.preventDefault());}
 function togglePet(){apply({pet:options.pet==='cat'?'dog':'cat'});}
-function apply(patch:unknown){finishCarry();options=updateOptions(options,patch);enforceMonitor();win.setIgnoreMouseEvents(!moving,{forward:true});save();send();refresh();}
+function apply(patch:unknown){finishCarry();const next=updateOptions(options,patch);if(next===options)return;options=next;enforceMonitor();win.setIgnoreMouseEvents(!moving,{forward:true});save();send();refresh();}
 async function openRemote(){
  if(remote&&!remote.isDestroyed()){remote.show();remote.focus();return;}
  const a=screen.getPrimaryDisplay().workArea;

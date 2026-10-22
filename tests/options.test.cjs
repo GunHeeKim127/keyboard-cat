@@ -1,5 +1,11 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');const {presets,updateOptions}=require('../dist-electron/options.js');
 test('quality presets preserve opt-in effects and movement',()=>{assert.equal(presets.low.wander,false);assert.equal(presets.high.wander,true);assert.equal(updateOptions(presets.low,{preset:'high'}).fps,12);});
+
+test('equivalent settings reuse identity to avoid disk writes and tray rebuilds',()=>{
+ const current=updateOptions(presets.high,{avatarName:'나비',multiMonitor:false});
+ for(const patch of [{},{unknown:true},{avatarName:'  나비  '},{fps:current.fps},{preset:'high'},{...current},{size:999}])assert.equal(updateOptions(current,patch),current);
+ for(const patch of [{nameDisplay:'hidden'},{pet:'dog'},{wander:false},{fps:5},{preset:'low'}])assert.notEqual(updateOptions(current,patch),current);
+});
 test('toggles remain independent and reject invalid payloads',()=>{const o=updateOptions(presets.high,{wander:false,fps:999,size:999,effects:'false'});assert.equal(o.wander,false);assert.equal(o.effects,true);assert.equal(o.fps,12);assert.equal(o.size,1.3);assert.equal(o.quality,'custom');assert.deepEqual(updateOptions(o,null),o);});
 test('sleep animation can be enabled without idle animation or effects',()=>{const o=updateOptions(presets.low,{sleepAnimation:true});assert.equal(o.sleepAnimation,true);assert.equal(o.restAnimation,false);assert.equal(o.effects,false);});
 test('avatar name persists through quality changes without changing the quality itself',()=>{

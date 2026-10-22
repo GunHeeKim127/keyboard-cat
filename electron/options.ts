@@ -6,10 +6,13 @@ export const presets:Record<'low'|'medium'|'high',Options>={
  medium:{pet:'cat',dogBreed:'chihuahua',catBreed:'original',avatarName:'고양이',nameDisplay:'hover',quality:'medium',size:1,fps:8,wander:false,effects:true,restAnimation:false,sleepAnimation:true,showCombo:true,grabEnabled:true,multiMonitor:true},
  high:{pet:'cat',dogBreed:'chihuahua',catBreed:'original',avatarName:'고양이',nameDisplay:'hover',quality:'high',size:1.3,fps:12,wander:true,effects:true,restAnimation:true,sleepAnimation:true,showCombo:true,grabEnabled:true,multiMonitor:true}
 };
+function reuseOptions(current:Options,next:Options):Options {
+ return (Object.keys(current) as (keyof Options)[]).every(key=>current[key]===next[key])?current:next;
+}
 export function updateOptions(current:Options,patch:unknown):Options {
  if(!patch||typeof patch!=='object'||Array.isArray(patch)||![Object.prototype,null].includes(Object.getPrototypeOf(patch)))return current;
  const p=patch as Record<string,unknown>;
- if(Object.hasOwn(p,'preset')&&(p.preset==='low'||p.preset==='medium'||p.preset==='high'))return {...presets[p.preset],pet:current.pet,dogBreed:current.dogBreed,catBreed:current.catBreed,avatarName:current.avatarName,nameDisplay:current.nameDisplay,multiMonitor:current.multiMonitor};
+ if(Object.hasOwn(p,'preset')&&(p.preset==='low'||p.preset==='medium'||p.preset==='high'))return reuseOptions(current,{...presets[p.preset],pet:current.pet,dogBreed:current.dogBreed,catBreed:current.catBreed,avatarName:current.avatarName,nameDisplay:current.nameDisplay,multiMonitor:current.multiMonitor});
  const next={...current};let changed=false;
  if(Object.hasOwn(p,'nameDisplay')&&(p.nameDisplay==='hover'||p.nameDisplay==='always'||p.nameDisplay==='hidden'))next.nameDisplay=p.nameDisplay;
  if(Object.hasOwn(p,'catBreed')&&isCatBreed(p.catBreed))next.catBreed=p.catBreed;
@@ -20,5 +23,5 @@ export function updateOptions(current:Options,patch:unknown):Options {
  for(const k of ['wander','effects','restAnimation','sleepAnimation','showCombo','grabEnabled'] as const)if(Object.hasOwn(p,k)&&typeof p[k]==='boolean'&&p[k]!==next[k]){next[k]=p[k] as boolean;changed=true;}
  if(Object.hasOwn(p,'size')&&typeof p.size==='number'&&[.75,1,1.3].includes(p.size)&&p.size!==next.size){next.size=p.size;changed=true;}
  if(Object.hasOwn(p,'fps')&&typeof p.fps==='number'&&[5,8,12].includes(p.fps)&&p.fps!==next.fps){next.fps=p.fps;changed=true;}
- if(changed)next.quality='custom';return next;
+ if(changed)next.quality='custom';return reuseOptions(current,next);
 }

@@ -32,3 +32,25 @@
 .updates{border-top:1px solid #34435c;padding:8px 0;margin:8px 0}.updates pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;font:11px/1.5 inherit;color:#dce6f7;user-select:text}.controller button:disabled{opacity:.6;cursor:wait}
 
 [data-isolated="true"] .pet.walk .sprite{animation:walk-sway var(--walk-cycle) ease-in-out infinite}@keyframes walk-sway{0%,50%,100%{translate:0 0}25%{translate:var(--walk-sway-x) var(--walk-sway-y)}75%{translate:calc(-1 * var(--walk-sway-x)) var(--walk-sway-y)}}
+
+/* Bird-only presentation: legacy cat/dog animation rules remain unchanged. */
+[data-pet-kind="parrot"] .pet.walk {animation:parrot-step var(--walk-cycle) ease-in-out infinite;}
+[data-pet-kind="parrot"] .pet.carry {transform-origin:50% 94%;animation:parrot-balance 1.6s ease-in-out infinite;}
+[data-pet-kind="parrot"] .pet.landing {animation:none;}
+[data-pet-kind="parrot"] .pet.fly {animation:parrot-flight 1.6s ease-in-out infinite;}
+[data-pet-kind="parrot"][data-parrot-playing="false"] .pet {animation:none;}
+.parrot-twig {position:absolute;top:27%;height:65%;width:5px;background:#996433;border:1px solid #5d3a20;border-radius:8px;transform:rotate(5deg);pointer-events:none;}
+.parrot-twig::before,.parrot-twig::after {content:"";position:absolute;width:18px;height:4px;background:#996433;border-radius:4px;left:-14px;top:35%;transform:rotate(25deg);}
+.parrot-twig::after {left:1px;top:65%;transform:rotate(-25deg);}
+@keyframes parrot-step {0%,50%,100%{translate:0 0}25%,75%{translate:0 -1px}}
+@keyframes parrot-balance {0%,100%{rotate:-3deg}50%{rotate:3deg}}
+@keyframes parrot-flight {0%,100%{translate:0 0}50%{translate:0 -12px}}
+
+[data-pet-kind="parrot"] .pet.walk .sprite {animation:none;}
+[data-pet-kind="parrot"] .pet.land {animation:none;}
+[data-pet-kind="parrot"] .pet .facing {position:relative;z-index:1;}
+
+[data-pet-kind="parrot"] .pet.climb_up .sprite {animation:parrot-climb-up 1.6s linear both;}
+[data-pet-kind="parrot"] .pet.climb_down .sprite {animation:parrot-climb-down 1.6s linear both;}
+@keyframes parrot-climb-up {from{translate:0 0}to{translate:0 -10px}}
+@keyframes parrot-climb-down {from{translate:0 -10px}to{translate:0 0}}

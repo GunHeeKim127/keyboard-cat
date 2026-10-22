@@ -21,7 +21,7 @@ function splitSilhouettes(data,width,height,columns,rows,{threshold=32,minArea=8
   if(slots[index])throw Error(`Multiple silhouettes in sprite slot ${index}`);
   slots[index]=component;
  }
- if(ordered){if(found.length!==columns*rows)throw Error(`Expected ${columns*rows} ordered cutouts, found ${found.length}`);found.sort((a,b)=>a.centerX-b.centerX).forEach((s,i)=>slots[i]=s);}
+ if(ordered){if(found.length!==columns*rows)throw Error(`Expected ${columns*rows} ordered cutouts, found ${found.length}`);if(ordered==='rows'){found.sort((a,b)=>a.centerY-b.centerY);for(let row=0;row<rows;row++)found.splice(row*columns,columns,...found.slice(row*columns,(row+1)*columns).sort((a,b)=>a.centerX-b.centerX));}else found.sort((a,b)=>a.centerX-b.centerX);found.forEach((s,i)=>slots[i]=s);}
  if(slots.some(s=>!s))throw Error('Missing sprite silhouette');
  return slots.map(s=>{
   const w=s.right-s.left+1,h=s.bottom-s.top+1,rgba=Buffer.alloc(w*h*4);

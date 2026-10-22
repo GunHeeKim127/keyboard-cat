@@ -22,12 +22,12 @@ test('installed updates are manual, coalesced, validated and require explicit in
  assert.deepEqual(client.feed,{provider:'github',owner:'GunHeeKim127',repo:'keyboard-cat',releaseType:'release'});
  for(const key of ['autoDownload','autoInstallOnAppQuit','allowPrerelease','allowDowngrade'])assert.equal(client[key],false);
  assert.equal(client.disableWebInstaller,true);assert.equal(client.disableDifferentialDownload,true);
- assert.equal(updater.install(()=>armed++),false);assert.equal(client.checks,0);
+ assert.equal(await updater.install(()=>armed++),false);assert.equal(client.checks,0);
  assert.equal(await updater.download('1.3.16',asset),false);
  assert.deepEqual(await Promise.all([updater.download('1.3.17',asset),updater.download('1.3.17',asset)]),[true,true]);
  assert.equal(client.checks,1);assert.equal(client.downloads,1);assert.equal(client.installs,0);assert.equal(updater.state.phase,'ready');
  assert.equal(await updater.download('1.3.18',asset),false);
- assert.equal(updater.install(()=>armed++),true);assert.equal(armed,1);assert.deepEqual(client.args,[false,true]);assert.equal(updater.install(()=>armed++),false);
+ assert.equal(await updater.install(()=>armed++),true);assert.equal(armed,1);assert.deepEqual(client.args,[false,true]);assert.equal(await updater.install(()=>armed++),false);
 });
 test('metadata mismatch, download failure and install failure never mark a failed update ready',async()=>{
  for(const mode of ['metadata','download','install']){
@@ -35,7 +35,7 @@ test('metadata mismatch, download failure and install failure never mark a faile
   if(mode==='metadata')client.info={...metadata(),version:'9.0.0'};
   if(mode==='download')client.downloadUpdate=async()=>{throw Error('checksum failed');};
   const ready=await updater.download('1.3.17',asset);
-  if(mode==='install'){assert.equal(ready,true);client.quitAndInstall=()=>client.emit('error',Error('cannot launch'));assert.equal(updater.install(()=>{}),false);}
+  if(mode==='install'){assert.equal(ready,true);client.quitAndInstall=()=>client.emit('error',Error('cannot launch'));assert.equal(await updater.install(()=>{}),false);}
   else assert.equal(ready,false);
   assert.equal(updater.state.phase,'error');assert.ok(recoveries>0);if(mode==='metadata')assert.equal(client.downloads,0);
  }
@@ -43,6 +43,26 @@ test('metadata mismatch, download failure and install failure never mark a faile
 test('a changed or withdrawn release cannot keep an older prepared install enabled',async()=>{
  const client=new Client(),updater=new InstalledUpdater(client,'1.3.16');
  await updater.download('1.3.17',asset);updater.invalidate('1.3.17',asset);assert.equal(updater.state.phase,'ready');
- updater.invalidate('1.3.18','Keyboard Cat Setup 1.3.18.exe');assert.equal(updater.state.phase,'idle');assert.equal(updater.install(()=>{}),false);
- await updater.download('1.3.17',asset);updater.invalidate();assert.equal(updater.install(()=>{}),false);
+ updater.invalidate('1.3.18','Keyboard Cat Setup 1.3.18.exe');assert.equal(updater.state.phase,'idle');assert.equal(await updater.install(()=>{}),false);
+ await updater.download('1.3.17',asset);updater.invalidate();assert.equal(await updater.install(()=>{}),false);
+});
+test('backup completes before exit and install, and backup failure leaves the running app untouched',async()=>{
+ const client=new Client(),order=[];let finish;
+ client.quitAndInstall=()=>order.push('install');
+ const updater=new InstalledUpdater(client,'1.3.16',()=>{},async target=>{assert.equal(target,'1.3.17');order.push('backup');await new Promise(r=>finish=r);});
+ await updater.download('1.3.17',asset);const install=updater.install(()=>order.push('quit'));
+ assert.deepEqual(order,['backup']);assert.equal(await updater.install(()=>order.push('duplicate')),false);
+ finish();assert.equal(await install,true);assert.deepEqual(order,['backup','quit','install']);
+ const failClient=new Client(),failed=new InstalledUpdater(failClient,'1.3.16',()=>{},async()=>{throw Error('disk full');});
+ await failed.download('1.3.17',asset);assert.equal(await failed.install(()=>order.push('unexpected quit')),false);
+ assert.equal(failClient.installs,0);assert.equal(failed.state.phase,'error');assert.equal(order.includes('unexpected quit'),false);
+});
+test('one update request downloads, backs up, quits and starts installation in order',async()=>{
+ const client=new Client(),order=[];
+ client.downloadUpdate=async()=>{order.push('download verified');return ['verified.exe'];};client.quitAndInstall=()=>order.push('installer');
+ const updater=new InstalledUpdater(client,'1.3.16',()=>{},async()=>{order.push('backup verified');});
+ assert.equal(await updater.update('1.3.17',asset,(v,a)=>{assert.equal(v,'1.3.17');assert.equal(a,asset);order.push('quit');}),true);
+ assert.deepEqual(order,['download verified','backup verified','quit','installer']);
+ const bad=new Client();bad.info={...metadata(),version:'9.0.0'};let prepared=false;
+ const denied=new InstalledUpdater(bad,'1.3.16',()=>{},async()=>{prepared=true;});assert.equal(await denied.update('1.3.17',asset,()=>{throw Error('should not quit');}),false);assert.equal(prepared,false);assert.equal(bad.installs,0);
 });

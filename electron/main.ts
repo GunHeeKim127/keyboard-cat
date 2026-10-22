@@ -10,6 +10,7 @@ import {breedNames,breeds,catBreeds,catBreedNames} from './pets';
 import {animationState} from './view-state';
 import {StateDelivery} from './state-delivery';
 import {InstalledUpdater,isUpdaterResource} from './installed-updater';
+import {UpdateRecovery} from './update-recovery';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
@@ -24,6 +25,7 @@ let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undef
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
+let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 const buildLabel='완성 이미지 8프레임 · 비율 보정 · 업데이트 확인';
 const updates=new UpdateChecker(app.getVersion(),process.platform,process.arch,!!process.env.PORTABLE_EXECUTABLE_FILE,undefined,url=>shell.openExternal(url));
 function inputReport(){
@@ -94,20 +96,26 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    const updater=new NsisUpdater(),updateSession=updater.netSession;
    updateSession.setPermissionRequestHandler((_c,_p,cb)=>cb(false));updateSession.setPermissionCheckHandler(()=>false);
    updateSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isUpdaterResource(d.url)}));
-   installedUpdater=new InstalledUpdater(updater,app.getVersion(),()=>{if(installQuitArmed){installQuitArmed=false;quitting=false;}});
-   }catch{installedUpdater=undefined;}
+   updateRecovery=new UpdateRecovery(app.getPath('userData'));
+   installedUpdater=new InstalledUpdater(updater,app.getVersion(),()=>{if(installQuitArmed){installQuitArmed=false;quitting=false;}},async target=>{
+    if(quitting)throw Error('Application is quitting');
+    await updateRecovery!.prepare(path.dirname(app.getPath('exe')),app.getVersion(),target);
+    if(quitting)throw Error('Application is quitting');
+   });
+   }catch{installedUpdater=undefined;updateRecovery=undefined;}
   }
   ipcMain.handle('snapshot',e=>{if(trusted(e))return state();});
+  const quitForUpdate=(version:string,asset:string)=>{const target=updates.selectedInstaller();if(!target||target.version!==version||target.asset!==asset)throw Error('Selected update changed');save();installQuitArmed=true;quitting=true;};
   ipcMain.handle('updates',async(e,action:unknown)=>{
    if(quitting||!trusted(e)||e.sender!==remote?.webContents)return undefined;
    try{
     if(action==='check'){const info=await updates.check(),target=updates.selectedInstaller();installedUpdater?.invalidate(target?.version,target?.asset);return {...info,installation:installedUpdater?.state};}
     if(action==='status')return {status:'current',message:'',installation:installedUpdater?.state};
-    if(action==='install')return installedUpdater?.install(()=>{save();installQuitArmed=true;quitting=true;})??false;
+    if(action==='install')return installedUpdater?.install(quitForUpdate)??false;
     if(action==='download'){
      if(!installedUpdater)return await updates.download();
      const target=updates.selectedInstaller();if(!target)return false;
-     await installedUpdater.download(target.version,target.asset);
+     await installedUpdater.update(target.version,target.asset,quitForUpdate);
      return {status:'available',message:'',installation:installedUpdater.state};
     }
     if(action==='notes')return await updates.openNotes();
@@ -124,11 +132,27 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   let previousWindowX=win.getPosition()[0];win.on('moved',()=>{const x=win.getPosition()[0];if(moving){direction=facingForDelta(direction,x-previousWindowX);send();if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}previousWindowX=x;});win.showInactive();startInput();
   powerMonitor.on('suspend',()=>{suspended=true;finishCarry();stopInput();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{suspended=false;lastHit=Date.now();startInput(false);});
   const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&now-lastHit<30000){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+direction*3;if(nx<a.x||nx+320>a.x+a.width){direction*=-1;nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}send();},100);
-  app.on('before-quit',()=>{quitting=true;clearInterval(timer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
+  if(updateRecovery&&existsSync(updateRecovery.root)){
+   let attempts=0,checking=false;
+   startupTimer=setInterval(async()=>{
+    if(checking)return;
+    if(quitting||win.isDestroyed()||++attempts>30){if(startupTimer)clearInterval(startupTimer);startupTimer=undefined;return;}
+    if(attempts<5||inputMonitor.status!=='ready')return;
+    checking=true;
+    try{
+     const healthy=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img,.carry-image');return document.readyState==='complete'&&!!window.cat&&!!img&&img.complete&&img.naturalWidth>0;})()`);
+     if(healthy&&!quitting&&!win.isDestroyed()){
+      const result=await updateRecovery!.confirm(app.getVersion(),path.dirname(app.getPath('exe')));
+      installedUpdater?.startupConfirmed(result);if(startupTimer)clearInterval(startupTimer);startupTimer=undefined;
+     }
+    }catch{/* A failed startup keeps the previous copy. */}finally{checking=false;}
+   },1000);
+  }
+  app.on('before-quit',()=>{quitting=true;clearInterval(timer);if(startupTimer)clearInterval(startupTimer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
   if(smoke){try{
    const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
    const updateClient=new NsisUpdater(),updateSmoke=new InstalledUpdater(updateClient,app.getVersion());
-   if(updateClient.autoDownload||updateClient.autoInstallOnAppQuit||updateClient.allowDowngrade||!updateClient.disableWebInstaller||updateSmoke.install(()=>{throw Error('Unprepared installer ran');}))throw Error('Installed updater initialization failed');
+   if(updateClient.autoDownload||updateClient.autoInstallOnAppQuit||updateClient.allowDowngrade||!updateClient.disableWebInstaller||await updateSmoke.install(()=>{throw Error('Unprepared installer ran');}))throw Error('Installed updater initialization failed');
    const nativeRejections=[];for(const y of [353.2,NaN,Infinity,'450',2147483648]){try{win.setPosition(640,y as number);}catch(e){nativeRejections.push({value:String(y),error:String(e)});}}
    if(nativeRejections.length!==5)throw Error('Native coordinate rejection changed');
    for(const y of [NaN,Infinity,'450',2147483648])if(positionWindow(640,y))throw Error('Invalid coordinate accepted');

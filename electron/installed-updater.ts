@@ -25,7 +25,7 @@ export class InstalledUpdater {
  state:InstallState={phase:'idle',progress:0,message:''};
  private pending:Promise<boolean>|undefined;
  private prepared='';
- constructor(private client:UpdaterClient,private current:string,private recover:()=>void=()=>{}){
+ constructor(private client:UpdaterClient,private current:string,private recover:()=>void=()=>{},private prepareInstall:(target:string)=>Promise<void>=async()=>{}){
   client.autoDownload=false;client.autoInstallOnAppQuit=false;client.allowPrerelease=false;client.allowDowngrade=false;
   client.disableWebInstaller=true;client.disableDifferentialDownload=true;
   client.setFeedURL({provider:'github',owner:'GunHeeKim127',repo:'keyboard-cat',releaseType:'release'});
@@ -33,6 +33,8 @@ export class InstalledUpdater {
   client.on('error',()=>this.fail());
  }
  private fail(){this.state={phase:'error',progress:0,message:'업데이트를 적용하지 못했어요. 현재 앱은 계속 사용할 수 있어요. 다시 확인하거나 파일을 직접 받아 설치해 주세요.'};this.recover();return false;}
+ private failed(){return this.state.phase==='error';}
+ startupConfirmed(result:{removed:number;retained:number}){if(this.state.phase==='idle')this.state={phase:'idle',progress:0,message:result.retained?'새 앱이 시작됐지만 확인이 필요한 이전 보관본은 남겨 두었어요.':result.removed?'새 버전의 정상 시작을 확인하고 이전 보관본을 정리했어요.':''};}
  invalidate(version?:string,asset?:string){if(this.state.phase==='ready'&&this.prepared!==version+'/'+asset){this.prepared='';this.state={phase:'idle',progress:0,message:''};}}
  download(version:string,asset:string){
   if(this.pending)return this.pending;
@@ -52,9 +54,13 @@ export class InstalledUpdater {
    this.prepared=version+'/'+asset;this.state={phase:'ready',progress:100,message:'준비됐어요. 설치하면 앱이 종료되고 새 버전으로 다시 시작해요.'};return true;
   }catch{return this.fail();}
  }
- install(beforeQuit:()=>void){
+ async update(version:string,asset:string,beforeQuit:(version:string,asset:string)=>void){
+  if(!await this.download(version,asset)||this.prepared!==version+'/'+asset)return false;
+  return this.install(beforeQuit);
+ }
+ async install(beforeQuit:(version:string,asset:string)=>void){
   if(this.state.phase!=='ready')return false;
-  this.state={phase:'installing',progress:100,message:'앱을 종료하고 업데이트를 설치합니다.'};
-  try{beforeQuit();this.client.quitAndInstall(false,true);return this.state.phase!=='error';}catch{return this.fail();}
+  this.state={phase:'installing',progress:100,message:'이전 버전을 보관하고 설치를 준비하고 있어요.'};
+  try{const [version,asset]=this.prepared.split('/');await this.prepareInstall(version);if(this.failed())return false;beforeQuit(version,asset);this.client.quitAndInstall(false,true);return !this.failed();}catch{return this.fail();}
  }
 }

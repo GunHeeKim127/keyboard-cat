@@ -1,6 +1,6 @@
 {
   "cockatoo": {
-    "key": "af1c851cfa4f7eb793e80fdc3245c2398ef8e533682a104bd85e53ab13ccfba7",
+    "key": "5a305e8ab6c1cd828f5ec2c74d07b87832f05060cc60ef46162196f3e81af97a",
     "hashes": {
       "public/sprites/parrot-cockatoo-IDLE-frame-0.png": "390486f6e6356714a623e648b2bfe03b5589f47eb222bd83af8ef3794a7ac969",
       "public/sprites/parrot-cockatoo-IDLE-frame-1.png": "7039d447a1856392159cbcdf9daa6da535136acb19d14f7c1effac1952c93546",
@@ -54,7 +54,7 @@
     }
   },
   "macaw": {
-    "key": "f9da8f4faa5ed11e4183c6168b098f0440075b8524c58605d417df56d2b6eb78",
+    "key": "1a9afc6a7b3c039774d3bfea22f4b3c0e78f2f2b68ebee1ce0b1412e926aa5eb",
     "hashes": {
       "public/sprites/parrot-macaw-IDLE-frame-0.png": "036c36586e33ea3dd69bd382991c4fad975225b005bb9718342c34f13643d5e1",
       "public/sprites/parrot-macaw-IDLE-frame-1.png": "f973afc8051806976a53394bd75d7132baf1a88db133db89b321a259b7f8bc8c",
@@ -92,9 +92,9 @@
       "public/sprites/parrot-macaw-DISPLAY-atlas.png": "707808fa4bbbe3fd6dfc8ed791efa177ebe8f084e423f75dff88d5aa29b346de",
       "public/sprites/parrot-macaw-SLEEP-frame-0.png": "7cb6b20d63dda9befa76dae336a070c7430531b233ebed4053c6d56dcd047ef1",
       "public/sprites/parrot-macaw-SLEEP-frame-1.png": "ac3e523d92e726b9827166409e51d854a93bfb546d746aec0fb510d3db462113",
-      "public/sprites/parrot-macaw-SLEEP-frame-2.png": "16c7f73f19db1e006ba9b13b9bcdb5f91973de50e55c493fef79aed4e80199b6",
-      "public/sprites/parrot-macaw-SLEEP-frame-3.png": "12626886d420945977ced33cf3d57b481e7d1110c50d2fad8343cfd33d18243f",
-      "public/sprites/parrot-macaw-SLEEP-atlas.png": "96a89b12711b04d3a517ca2fdcc9cdc571dd47c31ef694654d7ee012a72aa5f9",
+      "public/sprites/parrot-macaw-SLEEP-frame-2.png": "38a62b0cd6432f354d429d5b015474082aaba00522ea75d50250a7f7523ae856",
+      "public/sprites/parrot-macaw-SLEEP-frame-3.png": "154626fc747e81ff577f5468b7622c0b3bb1681ff04025db04dd1942f1c9e511",
+      "public/sprites/parrot-macaw-SLEEP-atlas.png": "2ef049bc12de9145f6177d9fea1911b838785099bc815fa75aa58c917b7e6077",
       "public/sprites/parrot-macaw-CARRY-frame-0.png": "1aac346d23ea289db40c623b393b0ec2cfe912cdd45d08f520abb48941a6b424",
       "public/sprites/parrot-macaw-CARRY-frame-1.png": "e281540632cab9ab0d3f295d23340f5b2d8a75ad9c8ac2905bcee1d32b9dcaf2",
       "public/sprites/parrot-macaw-CARRY-frame-2.png": "2c620b334e238d879b97e90ec5953d53602e5e9350351747d9f0f75bb85195c3",
@@ -108,7 +108,7 @@
     }
   },
   "cockatiel": {
-    "key": "80cf954bd9d99b8c5e0e84eb90995b1c93256221a86920786d9c51778587b795",
+    "key": "d38c2cbf129d462347ac9d5cf474eb1147c509026973f56b0dad574c8687718c",
     "hashes": {
       "public/sprites/parrot-cockatiel-IDLE-frame-0.png": "671499dc3690b278e6f55eea6e5fde0bac16b16719cb1553333100afa10e6550",
       "public/sprites/parrot-cockatiel-IDLE-frame-1.png": "2d787ce55dc42d34a6dd6a7f3aa39b5ae1cdc4d18d374b89b27134147cc9c78c",
@@ -162,7 +162,7 @@
     }
   },
   "parrotlet": {
-    "key": "7f4084d676127c930faca8c8009536d3176a43a8ab1c60bc3a23f8b96e11e47a",
+    "key": "233129bcfd34e6e89e24b7a87756f0807fffa992493cf2a5c18937376c360837",
     "hashes": {
       "public/sprites/parrot-parrotlet-IDLE-frame-0.png": "f94f0600336d185e90e7a949fb5b48c94d344a5e2356cb243283e165701769a2",
       "public/sprites/parrot-parrotlet-IDLE-frame-1.png": "f2d000215520e2d633a6f33834ac5d565abc2ecf01edb2ad5502f6e265aa63d4",
@@ -200,9 +200,9 @@
       "public/sprites/parrot-parrotlet-DISPLAY-atlas.png": "a9c28ed6d7865f1957fb056d1686e2c67f4d75f9cebac3b9f88803332617d106",
       "public/sprites/parrot-parrotlet-SLEEP-frame-0.png": "4271d5b8378c74100bb1bac17aa628e32227d4c6ab84d6a787d6e7eb5bb32ddc",
       "public/sprites/parrot-parrotlet-SLEEP-frame-1.png": "6f6614c5d70e6dba126bdd171e6386c14f37e710ab982aa6a08f2a78624f725f",
-      "public/sprites/parrot-parrotlet-SLEEP-frame-2.png": "73dd730f0a69e499fad95d8a20d871615a956e79a3f50a9789cc55589f72f9b8",
+      "public/sprites/parrot-parrotlet-SLEEP-frame-2.png": "42df5d000e13444011edf2c5d56526e096378d5aea69d257e79e420b3bd79b61",
       "public/sprites/parrot-parrotlet-SLEEP-frame-3.png": "a079b0acdcfb8284327b14423d57ab57f7c3b29083d49707a05cebc2b7822228",
-      "public/sprites/parrot-parrotlet-SLEEP-atlas.png": "faa0631d9e09956ff2b58dce5819a0afeb8f2adfbad80aae98b2204befa56eab",
+      "public/sprites/parrot-parrotlet-SLEEP-atlas.png": "20adc558e1a6c6dacde726d297f8c2448ba335685b51889730c8f1a6ed968bf7",
       "public/sprites/parrot-parrotlet-CARRY-frame-0.png": "3b4fd47156469d9bfabbac4e1b93a08813879e77f50ed7ba31376a669399cf4f",
       "public/sprites/parrot-parrotlet-CARRY-frame-1.png": "c81630bac6bc673274a14f0e83ce8070d60116362ebd0bead4c278ccb08b23e6",
       "public/sprites/parrot-parrotlet-CARRY-frame-2.png": "f35be71faf7fff88f7ff69c684b95dc08a4cf26460e443d8c662b28ab22d5839",
@@ -216,7 +216,7 @@
     }
   },
   "lovebird": {
-    "key": "e1ed2f7518229745e128c0a475d24e41bd66cbb267d92bf38668fb491079134f",
+    "key": "51b5391d100fe1f17e752e9b3cdc767d98d6c68262253b5e01afa38851031251",
     "hashes": {
       "public/sprites/parrot-lovebird-IDLE-frame-0.png": "a6c84d9a65baddcddd7e9cb777abd9680396bac7fe950cfeb2a88f604c965bb2",
       "public/sprites/parrot-lovebird-IDLE-frame-1.png": "468f84ade2ec739f854f482eeb19914ae44bb65a1be9ccfe2dc83321988ca498",
@@ -255,8 +255,8 @@
       "public/sprites/parrot-lovebird-SLEEP-frame-0.png": "6389170f31bd128fbfe070dd45c82ca75ebafbaac6e1c99b16f7439aa003d1cb",
       "public/sprites/parrot-lovebird-SLEEP-frame-1.png": "770ad1d4a7d187e60270fc81246d1550b94e9a4950752b44388d733443736c08",
       "public/sprites/parrot-lovebird-SLEEP-frame-2.png": "ab8bc4adc51c597c61fd1554c4b8f30fe06bbc276052fdb2dbe0d51f5542a447",
-      "public/sprites/parrot-lovebird-SLEEP-frame-3.png": "eeb31eb9b345263861953ffbec4fe3ef8703ac43351e5b402a3862368a73fe36",
-      "public/sprites/parrot-lovebird-SLEEP-atlas.png": "744de89cfb219ca7f9b1c99e7dbdc5d62181a697ec46630c7e4d4b1bdb912643",
+      "public/sprites/parrot-lovebird-SLEEP-frame-3.png": "9eb1be7807257231c02f1cbe27e910a03d7c5e8bd48a4b1dcf7245c2f3561857",
+      "public/sprites/parrot-lovebird-SLEEP-atlas.png": "fe9bb02d870cf4ac03098d97a692e312004661685f2c6f47e1da640a8fa91b63",
       "public/sprites/parrot-lovebird-CARRY-frame-0.png": "cf595e6ee869072a3c81a25a44e07a92b7cee2bc1da88017a4afe603559b1543",
       "public/sprites/parrot-lovebird-CARRY-frame-1.png": "8a6efcab84f54441d271544990625e68ffb7914dcbc3bc8e665ba13cdd16ee1b",
       "public/sprites/parrot-lovebird-CARRY-frame-2.png": "61ea048efe7f98d91cf4a080c74fa8efec8d691e2bd0cb49defb92c734750ffa",

@@ -7,7 +7,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "npm run build && electron .",
-    "build": "node scripts/extra-sprites.cjs && node scripts/atlas.cjs && node scripts/dog-sprites.cjs && node scripts/cat-sprites.cjs && node scripts/parrot-sprites.cjs && node scripts/native.cjs && tsc -p tsconfig.electron.json && tsc --noEmit && vite build",
+    "build": "node scripts/parrot-sprites.cjs && node scripts/native.cjs && tsc -p tsconfig.electron.json && tsc --noEmit && vite build",
     "start": "electron .",
     "dist": "npm run build && electron-builder --win nsis portable --publish never && node scripts/clean-old-releases.cjs win",
     "test": "node --test tests/*.test.cjs",

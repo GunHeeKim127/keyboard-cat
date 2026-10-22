@@ -10,9 +10,10 @@ export function parrotSpriteFor(breed:ParrotBreed,action:string){
  const safeBreed=isParrotBreed(breed)?breed:'cockatoo',safeAction=Object.hasOwn(parrotFrames,action)?action:'IDLE';
  return {src:`./sprites/parrot-${safeBreed}-${safeAction.startsWith('CLIMB_')?'CLIMB':safeAction}-atlas.png`,frames:parrotFrames[safeAction]};
 }
+const parrotFrameHold:Record<string,number>={IDLE:600,WALK:140,CHIRP:260,CLIMB_UP:400,CLIMB_DOWN:400,FLY:180,DISPLAY:450,SLEEP:1200,CARRY:700,LAND:250};
 export function parrotDuration(action:string,frames:number,fps:number){
- const hold:Record<string,number>={IDLE:600,WALK:140,CHIRP:260,CLIMB_UP:400,CLIMB_DOWN:400,FLY:180,DISPLAY:450,SLEEP:1200,CARRY:700,LAND:250};
- return frames*Math.max(1000/fps,hold[action]??600)/1000;
+
+ return frames*Math.max(1000/fps,parrotFrameHold[action]??600)/1000;
 }
 export function parrotAnimationState(paused:boolean,lowPower:boolean,moving:boolean,idleFor:number,count:number,effect:number,effectAge:number){
  const duration=effect===20?4200:effect===30?2600:effect>=50?2400:1600;

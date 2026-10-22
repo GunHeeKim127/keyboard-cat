@@ -27,7 +27,7 @@ let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke
 let diagnosticReport='';
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
-const buildLabel='앵무새 5종 · 기존 동물 모션 유지 · 업데이트 확인';
+const buildLabel='앵무새 5종 · 표시 처리 최적화 · 기존 모션 유지';
 const updates=new UpdateChecker(app.getVersion(),process.platform,process.arch,!!process.env.PORTABLE_EXECUTABLE_FILE,undefined,url=>shell.openExternal(url));
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());

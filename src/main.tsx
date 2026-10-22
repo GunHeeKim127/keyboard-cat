@@ -83,17 +83,12 @@ function Controller({s}:{s:State}){
   <p className="hint bottom-note">숨긴 리모컨은 트레이 고양이를 더블클릭하면 열려요.</p>
  </div>;
 }
-function App(){
- const [hovered,setHovered]=useState(false);
- const [s,set]=useState<State>({buildLabel:'',diagnosticReport:'',version:'',platform:'',inputReady:false,options:{pet:'cat',dogBreed:'chihuahua',catBreed:'original',parrotBreed:'cockatoo',avatarName:'고양이',nameDisplay:'hover',quality:'low',size:.75,fps:5,wander:false,effects:false,restAnimation:false,sleepAnimation:false,showCombo:true,grabEnabled:true,multiMonitor:true},facing:1,combo:0,paused:false,moving:false,carried:false,landing:false,hookError:'',effect:0,effectAt:0,lastHit:0,action:'IDLE',animate:false});
- useEffect(()=>{let active=true;const off=window.cat.onState(v=>{if(active)set(v);});window.cat.snapshot().then(v=>{if(active&&v)set(v);});return()=>{active=false;off();};},[]);
- if(new URLSearchParams(location.search).has('panel'))return <Controller s={s}/>;
- const o=s.options,isolated=o.pet!=='cat'||o.catBreed!=='original',visualAction=s.carried&&isolated?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction,o.catBreed,o.parrotBreed),n=visual.frames,duration=spriteDuration(o.pet,visualAction,n,o.fps,o.catBreed,o.parrotBreed),spriteKey=o.pet+'-'+o.dogBreed+'-'+o.catBreed+'-'+visualAction+'-'+s.effectAt+(o.pet==='parrot'?'-'+o.parrotBreed:'');
- return <main data-parrot-breed={o.parrotBreed} data-parrot-playing={!s.paused} data-cat-breed={o.catBreed} data-isolated={isolated} data-pet-kind={o.pet} data-dog-breed={o.dogBreed} className={`${s.moving?'moving':''} ${!o.effects?'low-power':''} effect-${s.effect}`}>
-  {s.moving&&<div className="toolbar"><span>드래그하여 이동</span><button onClick={()=>window.cat.lock()}>위치 고정</button></div>}
-  {o.showCombo&&s.combo>0&&<div className="combo"><strong>{s.combo}</strong><span>COMBO</span><div key={s.lastHit} className="meter" style={{animationDelay:`-${Math.min(1500,Date.now()-s.lastHit)}ms`}}/></div>}
-  {s.effect>0&&<div className="burst" key={s.effectAt}>{o.pet==='parrot'?(s.effect===50?parrotDisplays[o.parrotBreed]:s.effect===30?'짧은 비행!':s.effect===20?(s.action==='CLIMB_DOWN'?'가지 내려오기':'가지 오르기'):'까딱 인사!'):s.effect===50?(o.pet==='dog'?'✦ WOOF POWER ✦':'✦ MEOW POWER ✦'):s.effect===30?'⚡ SUPER DASH ⚡':s.effect===20?(s.action==='CLIMB_DOWN'?'↓ 내려오기 ↓':'↑ 사다리 콤보 ↑'):'✧ NICE! ✧'}</div>}
-  <div className={`pet ${s.carried?'carry':s.landing?'landing':s.animate?s.action.toLowerCase():''} ${o.grabEnabled?'grabbable':''}`} style={{width:112*o.size,height:112*o.size,'--facing':s.facing,'--drop-y':'-6px','--walk-cycle':duration+'s','--walk-sway-x':(.8*o.size)+'px','--walk-sway-y':(-.5*o.size)+'px'} as React.CSSProperties}
+type PetAvatarProps=Options & Pick<State,'action'|'animate'|'facing'|'carried'|'landing'|'paused'|'effectAt'|'moving'>;
+// IPC clones options each time. Scalar props let memo skip unchanged visuals.
+const PetAvatar=React.memo(function PetAvatar(props:PetAvatarProps){
+ const s=props,o=props,[hovered,setHovered]=useState(false);
+ const isolated=o.pet!=='cat'||o.catBreed!=='original',visualAction=s.carried&&isolated?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction,o.catBreed,o.parrotBreed),n=visual.frames,duration=spriteDuration(o.pet,visualAction,n,o.fps,o.catBreed,o.parrotBreed),spriteKey=o.pet+'-'+o.dogBreed+'-'+o.catBreed+'-'+visualAction+'-'+s.effectAt+(o.pet==='parrot'?'-'+o.parrotBreed:'');
+ return <div className={`pet ${s.carried?'carry':s.landing?'landing':s.animate?s.action.toLowerCase():''} ${o.grabEnabled?'grabbable':''}`} style={{width:112*o.size,height:112*o.size,'--facing':s.facing,'--drop-y':'-6px','--walk-cycle':duration+'s','--walk-sway-x':(.8*o.size)+'px','--walk-sway-y':(-.5*o.size)+'px'} as React.CSSProperties}
    onMouseEnter={()=>{setHovered(true);window.cat.hover(true);}} onMouseLeave={()=>{setHovered(false);window.cat.hover(false);}}
    onPointerDown={e=>{if(e.button===0&&o.grabEnabled&&!s.moving){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);window.cat.carry(true);}}}
    onPointerUp={e=>{window.cat.carry(false);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
@@ -102,7 +97,18 @@ function App(){
    {o.pet==='parrot'&&!s.carried&&s.action.startsWith('CLIMB_')&&<div className="parrot-twig" aria-label="앵무새가 오르내리는 가지" style={{left:s.facing<0?'27%':'68%'}}/>}
    <div className="facing" style={{transform:`scaleX(${s.facing})`}}>{s.carried&&!isolated?<img className="carry-image" src="./sprites/carry.png" draggable={false}/>:<div className="sprite">{isolated?<FrameSprite key={spriteKey} src={visual.src} frames={n} duration={duration} animate={s.carried?!s.paused:s.animate} reverse={s.action==='CLIMB_DOWN'}/>:<img key={spriteKey} src={visual.src} draggable={false} style={{width:`${n*100}%`,animation:(n>1)&&s.animate?`frames ${duration}s steps(${n}) infinite ${s.action==='CLIMB_DOWN'?'reverse':'normal'}`:'none'}}/>}</div>}</div>
    {(o.nameDisplay==='always'||(o.nameDisplay==='hover'&&hovered))&&<div className="avatar-name" role={o.nameDisplay==='hover'?'tooltip':undefined}>{o.avatarName}</div>}
-  </div>
+  </div>;
+});
+function App(){
+ const [s,set]=useState<State>({buildLabel:'',diagnosticReport:'',version:'',platform:'',inputReady:false,options:{pet:'cat',dogBreed:'chihuahua',catBreed:'original',parrotBreed:'cockatoo',avatarName:'고양이',nameDisplay:'hover',quality:'low',size:.75,fps:5,wander:false,effects:false,restAnimation:false,sleepAnimation:false,showCombo:true,grabEnabled:true,multiMonitor:true},facing:1,combo:0,paused:false,moving:false,carried:false,landing:false,hookError:'',effect:0,effectAt:0,lastHit:0,action:'IDLE',animate:false});
+ useEffect(()=>{let active=true;const off=window.cat.onState(v=>{if(active)set(v);});window.cat.snapshot().then(v=>{if(active&&v)set(v);});return()=>{active=false;off();};},[]);
+ if(new URLSearchParams(location.search).has('panel'))return <Controller s={s}/>;
+ const o=s.options,isolated=o.pet!=='cat'||o.catBreed!=='original';
+ return <main data-parrot-breed={o.parrotBreed} data-parrot-playing={!s.paused} data-cat-breed={o.catBreed} data-isolated={isolated} data-pet-kind={o.pet} data-dog-breed={o.dogBreed} className={`${s.moving?'moving':''} ${!o.effects?'low-power':''} effect-${s.effect}`}>
+  {s.moving&&<div className="toolbar"><span>드래그하여 이동</span><button onClick={()=>window.cat.lock()}>위치 고정</button></div>}
+  {o.showCombo&&s.combo>0&&<div className="combo"><strong>{s.combo}</strong><span>COMBO</span><div key={s.lastHit} className="meter" style={{animationDelay:`-${Math.min(1500,Date.now()-s.lastHit)}ms`}}/></div>}
+  {s.effect>0&&<div className="burst" key={s.effectAt}>{o.pet==='parrot'?(s.effect===50?parrotDisplays[o.parrotBreed]:s.effect===30?'짧은 비행!':s.effect===20?(s.action==='CLIMB_DOWN'?'가지 내려오기':'가지 오르기'):'까딱 인사!'):s.effect===50?(o.pet==='dog'?'✦ WOOF POWER ✦':'✦ MEOW POWER ✦'):s.effect===30?'⚡ SUPER DASH ⚡':s.effect===20?(s.action==='CLIMB_DOWN'?'↓ 내려오기 ↓':'↑ 사다리 콤보 ↑'):'✧ NICE! ✧'}</div>}
+  <PetAvatar {...o} moving={s.moving} action={s.action} animate={s.animate} facing={s.facing} carried={s.carried} landing={s.landing} paused={s.paused} effectAt={s.effectAt}/>
   {(s.paused||s.hookError)&&<div className="status">{s.paused?'쉬는 중 · 감지 꺼짐':s.hookError}</div>}
  </main>;
 }

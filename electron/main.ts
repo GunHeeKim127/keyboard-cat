@@ -9,6 +9,7 @@ import {Combo} from './combo';
 import {breedNames,breeds,catBreeds,catBreedNames} from './pets';
 import {animationState} from './view-state';
 import {StateDelivery} from './state-delivery';
+import {InstalledUpdater,isUpdaterResource} from './installed-updater';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
@@ -22,6 +23,7 @@ let stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
 let diagnosticReport='';
+let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 const buildLabel='완성 이미지 8프레임 · 비율 보정 · 업데이트 확인';
 const updates=new UpdateChecker(app.getVersion(),process.platform,process.arch,!!process.env.PORTABLE_EXECUTABLE_FILE,undefined,url=>shell.openExternal(url));
 function inputReport(){
@@ -86,10 +88,30 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   localSession.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));localSession.setPermissionCheckHandler(()=>false);localSession.setDevicePermissionHandler(()=>false);localSession.on('will-download',(e)=>e.preventDefault());
   localSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isAppResource(d.url,distRoot)}));
   const trusted=(e:Electron.IpcMainEvent|Electron.IpcMainInvokeEvent)=>{const sender=e.sender;return !quitting&&!win.isDestroyed()&&!sender.isDestroyed()&&(sender===win.webContents||(!!remote&&!remote.isDestroyed()&&sender===remote.webContents))&&isTrustedFrame(sender,e.senderFrame,indexFile);};
+  if(!smoke&&app.isPackaged&&process.platform==='win32'&&!process.env.PORTABLE_EXECUTABLE_FILE&&existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe'))){
+   try{
+   const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
+   const updater=new NsisUpdater(),updateSession=updater.netSession;
+   updateSession.setPermissionRequestHandler((_c,_p,cb)=>cb(false));updateSession.setPermissionCheckHandler(()=>false);
+   updateSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isUpdaterResource(d.url)}));
+   installedUpdater=new InstalledUpdater(updater,app.getVersion(),()=>{if(installQuitArmed){installQuitArmed=false;quitting=false;}});
+   }catch{installedUpdater=undefined;}
+  }
   ipcMain.handle('snapshot',e=>{if(trusted(e))return state();});
   ipcMain.handle('updates',async(e,action:unknown)=>{
    if(quitting||!trusted(e)||e.sender!==remote?.webContents)return undefined;
-   try{if(action==='check')return await updates.check();if(action==='download')return await updates.download();if(action==='notes')return await updates.openNotes();}catch{return false;}
+   try{
+    if(action==='check'){const info=await updates.check(),target=updates.selectedInstaller();installedUpdater?.invalidate(target?.version,target?.asset);return {...info,installation:installedUpdater?.state};}
+    if(action==='status')return {status:'current',message:'',installation:installedUpdater?.state};
+    if(action==='install')return installedUpdater?.install(()=>{save();installQuitArmed=true;quitting=true;})??false;
+    if(action==='download'){
+     if(!installedUpdater)return await updates.download();
+     const target=updates.selectedInstaller();if(!target)return false;
+     await installedUpdater.download(target.version,target.asset);
+     return {status:'available',message:'',installation:installedUpdater.state};
+    }
+    if(action==='notes')return await updates.openNotes();
+   }catch{return false;}
    return undefined;
   });
   ipcMain.on('options',(e,p)=>{if(trusted(e)&&e.sender===remote?.webContents)apply(p);});
@@ -104,6 +126,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&now-lastHit<30000){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+direction*3;if(nx<a.x||nx+320>a.x+a.width){direction*=-1;nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}send();},100);
   app.on('before-quit',()=>{quitting=true;clearInterval(timer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
   if(smoke){try{
+   const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
+   const updateClient=new NsisUpdater(),updateSmoke=new InstalledUpdater(updateClient,app.getVersion());
+   if(updateClient.autoDownload||updateClient.autoInstallOnAppQuit||updateClient.allowDowngrade||!updateClient.disableWebInstaller||updateSmoke.install(()=>{throw Error('Unprepared installer ran');}))throw Error('Installed updater initialization failed');
    const nativeRejections=[];for(const y of [353.2,NaN,Infinity,'450',2147483648]){try{win.setPosition(640,y as number);}catch(e){nativeRejections.push({value:String(y),error:String(e)});}}
    if(nativeRejections.length!==5)throw Error('Native coordinate rejection changed');
    for(const y of [NaN,Infinity,'450',2147483648])if(positionWindow(640,y))throw Error('Invalid coordinate accepted');

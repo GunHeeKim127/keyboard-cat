@@ -1,7 +1,8 @@
 import https from 'node:https';
+import type {InstallState} from './installed-updater';
 export const releasesURL='https://github.com/GunHeeKim127/keyboard-cat/releases';
 const apiURL='https://api.github.com/repos/GunHeeKim127/keyboard-cat/releases/latest';
-export type UpdateInfo={status:'available'|'current'|'empty'|'error';version?:string;notes?:string;downloadReady?:boolean;message:string};
+export type UpdateInfo={status:'available'|'current'|'empty'|'error';version?:string;notes?:string;downloadReady?:boolean;message:string;installation?:InstallState};
 type Release={version:string;notes:string;page:string;download?:string};
 function versionParts(value:string){return /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)?value.replace(/^v/,'').split('.').map(Number):null;}
 export function newerVersion(candidate:string,current:string){const a=versionParts(candidate),b=versionParts(current);if(!a||!b||[...a,...b].some(v=>!Number.isSafeInteger(v)))return false;for(let i=0;i<3;i++){if(a[i]!==b[i])return a[i]>b[i];}return false;}
@@ -43,6 +44,7 @@ export function fetchLatestRelease():Promise<unknown>{
 export class UpdateChecker{
  private result:UpdateInfo|undefined;private release:Release|null=null;private checked=0;private pending:Promise<UpdateInfo>|undefined;
  constructor(private current:string,private platform:string,private arch:string,private portable:boolean,private fetchRelease=fetchLatestRelease,private open:(url:string)=>Promise<void>=async()=>{}){}
+ selectedInstaller(){return this.result?.status==='available'&&this.release?.download?{version:this.release.version,asset:decodeURIComponent(new URL(this.release.download).pathname.split('/').pop()!)}:undefined;}
  check():Promise<UpdateInfo>{
   if(this.pending)return this.pending;
   if(this.result&&Date.now()-this.checked<60000)return Promise.resolve(this.result);

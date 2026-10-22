@@ -18,7 +18,7 @@ async function build(){
   const source=await poses(`assets/cats/${breed}-sheet${breed==='norwegian-forest'?'-v2':''}.png`,4,7);
   const scale=Math.min(92/Math.max(...source.map(p=>p.width)),96/Math.max(...source.map(p=>p.height)));
   const cells=await Promise.all(source.map(p=>frame(p,scale)));
-  const walk=await poses(`assets/cats/${breed}-walk-v7-sheet.png`,4,2),previousWalk=source.slice(4,12);
+  const walk=await poses(`assets/cats/${breed}-walk-${breed==='siamese'?'v8':'v7'}-sheet.png`,4,2),previousWalk=source.slice(4,12);
   // Keep the previous walking size rather than enlarging to the sitting poses.
   const headX=median(source.slice(0,4).map(p=>Math.round((100-Math.round(p.width*scale))/2)+headAnchor(p)*scale));
   const walking=await walkFrames(walk,median(previousWalk.map(p=>p.height))*scale,Math.max(...previousWalk.map(p=>p.width))*scale,headX);

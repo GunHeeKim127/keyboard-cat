@@ -204,3 +204,7 @@ node scripts/check-mac-package.cjs
 ```
 
 Windows에서 DMG를 직접 생성하는 절차가 아닙니다. Mac 또는 GitHub Actions **Build macOS**를 사용합니다. workflow는 DMG를 Artifacts로 저장하며 새 Releases를 자동 게시하지 않습니다. 선택적 유료 서명 배포 설정은 [MACOS-DISTRIBUTION.md](MACOS-DISTRIBUTION.md)를 참고하세요.
+
+## 1.3.16 업데이트·정리 안내
+
+비용 보류 방침으로 Mac 표준 자동 교체는 활성화하지 않습니다. 업데이트 버튼으로 DMG를 받은 후 앱 종료 → 응용 프로그램에 대치 → 새 버전 확인 → 이전 DMG·ZIP 정리 순서로 진행합니다. 앱 설정이나 macOS 권한 기록은 지우지 않습니다. 자세한 안내는 [UPDATE-INSTALL.md](UPDATE-INSTALL.md)에 있습니다.

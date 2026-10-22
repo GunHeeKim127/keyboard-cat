@@ -6,7 +6,7 @@ import type {UpdateInfo} from '../electron/updates';
 import {DogBreed,PetKind,CatBreed,catBreeds,catBreedNames,catBreedTraits,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
 type Options={pet:PetKind;dogBreed:DogBreed;catBreed:CatBreed;avatarName:string;nameDisplay:NameDisplay;quality:string;size:number;fps:number;wander:boolean;effects:boolean;restAnimation:boolean;sleepAnimation:boolean;showCombo:boolean;grabEnabled:boolean;multiMonitor:boolean};
 type State={buildLabel:string;diagnosticReport:string;version:string;platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
-declare global {interface Window{cat:{snapshot:()=>Promise<State>;updates:(action:'check'|'download'|'notes')=>Promise<UpdateInfo|boolean|undefined>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
+declare global {interface Window{cat:{snapshot:()=>Promise<State>;updates:(action:'check'|'download'|'notes'|'status'|'install')=>Promise<UpdateInfo|boolean|undefined>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
 // Each generated pet frame has its own texture, so fractional sizes cannot reveal adjacent poses.
 // Assets are a fixed, finite set. Retain successful decodes across motion changes.
 const frameTextures=new Map<string,Promise<HTMLImageElement>>();
@@ -45,9 +45,24 @@ function MacPermission(){
 }
 function Updates(){
  const [info,setInfo]=useState<UpdateInfo>(),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ const phase=info?.installation?.phase,working=phase==='checking'||phase==='downloading'||phase==='installing';
+ useEffect(()=>{
+  if(!working)return;
+  let active=true,pending=false;
+  const timer=setInterval(async()=>{if(pending)return;pending=true;try{const value=await window.cat.updates('status');if(active&&value&&typeof value==='object')setInfo(previous=>previous?{...previous,installation:value.installation}:previous);}catch{}finally{pending=false;}},750);
+  return()=>{active=false;clearInterval(timer);};
+ },[working]);
  async function check(){setBusy(true);setNotice('');try{const result=await window.cat.updates('check');if(result&&typeof result==='object')setInfo(result);else setNotice('업데이트를 확인하지 못했어요. 잠시 후 다시 눌러 주세요.');}catch{setNotice('업데이트를 확인하지 못했어요.');}finally{setBusy(false);}}
- async function open(action:'download'|'notes'){setBusy(true);try{const ok=await window.cat.updates(action);setNotice(ok?(action==='download'?'브라우저에서 다운로드가 시작돼요. 받은 뒤 앱을 종료하고 새 파일로 교체하세요.':'브라우저에서 릴리스 내용을 열었어요.'):'브라우저를 열지 못했어요. 잠시 후 다시 눌러 주세요.');}catch{setNotice('브라우저를 열지 못했어요.');}finally{setBusy(false);}}
- return <section className="updates" aria-label="앱 업데이트"><div className="controls"><button data-update-check disabled={busy} onClick={()=>void check()}>{busy?'확인 중…':'업데이트 확인'}</button><button disabled={busy} onClick={()=>void open('notes')}>릴리스 내용</button></div>{info&&<p role="status">{info.version&&<b>v{info.version} · </b>}{info.message}</p>}{info?.status==='available'&&info.downloadReady&&<button data-update-download disabled={busy} onClick={()=>void open('download')}>새 버전 다운로드</button>}{info?.status==='available'&&info.notes&&<details><summary>변경 내용 보기</summary><pre>{info.notes}</pre></details>}{notice&&<p role="status">{notice}</p>}<p>버튼을 누르면 GitHub의 정식 릴리스를 확인해요. 다운로드 후 기존 앱을 종료하고 교체해 주세요.</p></section>;
+ async function open(action:'download'|'notes'|'install'){
+  setBusy(true);setNotice('');
+  if(action==='download'&&info?.installation)setInfo({...info,installation:{phase:'checking',progress:0,message:'설치 정보를 확인하고 있어요.'}});
+  if(action==='install'&&info?.installation)setInfo({...info,installation:{...info.installation,phase:'installing',message:'설치를 시작하고 있어요.'}});
+  try{const result=await window.cat.updates(action);
+   if(result&&typeof result==='object')setInfo(previous=>previous?{...previous,installation:result.installation}:previous);
+   else setNotice(result?(action==='install'?'설치를 시작합니다.':action==='download'?'브라우저에서 받은 뒤 기존 앱을 종료하고 새 파일로 교체하세요.':'브라우저에서 릴리스 내용을 열었어요.'):'요청을 처리하지 못했어요. 업데이트를 다시 확인해 주세요.');
+  }catch{setNotice('요청을 처리하지 못했어요. 다시 확인해 주세요.');}finally{setBusy(false);}
+ }
+ return <section className="updates" aria-label="앱 업데이트"><div className="controls"><button data-update-check disabled={busy||working} onClick={()=>void check()}>{busy||working?'처리 중…':'업데이트 확인'}</button><button disabled={busy||working} onClick={()=>void open('notes')}>릴리스 내용</button></div>{info&&<p role="status">{info.version&&<b>v{info.version} · </b>}{info.message}</p>}{info?.status==='available'&&info.downloadReady&&phase!=='ready'&&phase!=='installing'&&<button data-update-download disabled={busy||working} onClick={()=>void open('download')}>{info.installation?'업데이트 다운로드':'새 버전 다운로드'}</button>}{info?.installation&&<p data-update-install-status role="status">{info.installation.message}{phase==='downloading'&&' '+Math.floor(info.installation.progress)+'%'}</p>}{phase==='ready'&&<button data-update-install disabled={busy} onClick={()=>void open('install')}>설치하고 다시 시작</button>}{info?.status==='available'&&info.notes&&<details><summary>변경 내용 보기</summary><pre>{info.notes}</pre></details>}{notice&&<p role="status">{notice}</p>}<p>Windows 설치형은 앱에서 다운로드한 뒤 ‘설치하고 다시 시작’으로 적용해요. 설치 과정에서 이전 설치본을 교체합니다. 휴대용 EXE와 Mac은 받은 파일로 직접 교체해 주세요. Mac은 기존 앱을 종료하고 응용 프로그램 폴더에서 대치한 뒤, 확인이 끝나면 이전 DMG·다운로드 파일을 휴지통에 넣으세요.</p></section>;
 }
 function Controller({s}:{s:State}){
  const o=s.options,labels:Record<string,string>={low:'저 · 절전',medium:'중 · 균형',high:'고 · 풍성하게',custom:'사용자 설정'};

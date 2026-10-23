@@ -13,6 +13,7 @@ import {StateDelivery} from './state-delivery';
 import {InstalledUpdater,isUpdaterResource} from './installed-updater';
 import {UpdateRecovery} from './update-recovery';
 import {ManagedUpdateFiles} from './managed-update-files';
+import {WindowsFolderUpdater} from './windows-updater';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
@@ -96,13 +97,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   const trusted=(e:Electron.IpcMainEvent|Electron.IpcMainInvokeEvent)=>{const sender=e.sender;return !quitting&&!win.isDestroyed()&&!sender.isDestroyed()&&(sender===win.webContents||(!!remote&&!remote.isDestroyed()&&sender===remote.webContents))&&isTrustedFrame(sender,e.senderFrame,indexFile);};
   if(!smoke&&app.isPackaged&&process.platform==='win32'&&(process.env.PORTABLE_EXECUTABLE_FILE||existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe')))){
    try{
-   const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
    managedUpdateFiles=new ManagedUpdateFiles(app.getPath('userData'),process.env.LOCALAPPDATA||path.join(app.getPath('home'),'AppData','Local'));
-   const updater=new NsisUpdater(undefined,{
-    version:app.getVersion(),name:app.getName(),isPackaged:app.isPackaged,
-    appUpdateConfigPath:path.join(process.resourcesPath,'app-update.yml'),userDataPath:app.getPath('userData'),baseCachePath:managedUpdateFiles.root,
-    whenReady:async()=>{await app.whenReady();},quit:()=>app.quit(),relaunch:()=>app.relaunch(),onQuit:handler=>{app.once('quit',(_event,code)=>handler(code));}
-   }),updateSession=updater.netSession;
+   const updater=new WindowsFolderUpdater(managedUpdateFiles.root),updateSession=updater.netSession;
    // NSIS may inherit the old portable launcher's environment during migration.
    // An actual installed bundle always wins over that stale environment variable.
    const portable=existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe'))?undefined:process.env.PORTABLE_EXECUTABLE_FILE;
@@ -170,6 +166,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   if(smoke){try{
    const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
    const updateClient=new NsisUpdater(),updateSmoke=new InstalledUpdater(updateClient,app.getVersion());
+   const folderClient=new WindowsFolderUpdater(path.join(app.getPath('userData'),'managed-updater-smoke'));
+   if(!(folderClient as unknown as {httpExecutor:unknown}).httpExecutor)throw Error('Managed updater HTTP transport missing');
    if(updateClient.autoDownload||updateClient.autoInstallOnAppQuit||updateClient.allowDowngrade||!updateClient.disableWebInstaller||await updateSmoke.install(()=>{throw Error('Unprepared installer ran');}))throw Error('Installed updater initialization failed');
    const nativeRejections=[];for(const y of [353.2,NaN,Infinity,'450',2147483648]){try{win.setPosition(640,y as number);}catch(e){nativeRejections.push({value:String(y),error:String(e)});}}
    if(nativeRejections.length!==5)throw Error('Native coordinate rejection changed');

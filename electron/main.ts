@@ -144,12 +144,11 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(action==='status')return {status:'current',message:'',installation:installation(),failure:failure()};
     if(action==='cancel-core'){coreStore?.cancel();if(coreUpdater)coreUpdater.state={phase:'idle',progress:0,message:'이번 업데이트를 취소하고 이전 버전을 유지해요.',mode:'core'};return {status:'current',message:'이번 업데이트를 취소하고 이전 버전을 유지해요.',installation:installation(),failure:failure()};}
     if(action==='retry-core'){
-     if(!coreUpdater)return false;
      await updates.check();const core=updates.selectedCore();
      const cached=coreStore?.failure()?.manifest;
-     if((!core||core.archive.sha256===cached?.sha256)&&coreUpdater.retry(()=>{if(quitting)throw Error('Quitting');save();quitting=true;}))return true;
-     if(!core)return {status:'error',message:'받을 수 있는 기능 묶음이 없어요. 업데이트를 다시 확인해 주세요.',failure:failure()};
-     await coreUpdater.update(core,()=>{save();quitting=true;});return {status:'available',message:'',installation:installation(),failure:failure()};
+     if((!core||core.archive.sha256===cached?.sha256)&&coreUpdater?.retry(()=>{if(quitting)throw Error('Quitting');save();quitting=true;}))return true;
+     // Reuse the complete download path, including signed full-runtime fallback.
+     action='download';
     }
     if(action==='install')return installedUpdater?.install(quitForUpdate)??false;
     if(action==='download'){

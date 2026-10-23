@@ -3,6 +3,7 @@ import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './style.css';
 import {StableSpriteImage} from './StableSpriteImage';
+import {loadFrame} from './sprite-textures';
 import type {NameDisplay} from '../electron/options';
 import type {UpdateInfo} from '../electron/updates';
 import {DogBreed,PetKind,CatBreed,catBreeds,catBreedNames,catBreedTraits,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
@@ -10,13 +11,6 @@ type Options={pet:PetKind;dogBreed:DogBreed;catBreed:CatBreed;parrotBreed:Parrot
 type State={buildLabel:string;diagnosticReport:string;version:string;platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
 declare global {interface Window{cat:{snapshot:()=>Promise<State>;updates:(action:'check'|'download'|'notes'|'status'|'install'|'retry-core'|'cancel-core')=>Promise<UpdateInfo|boolean|undefined>;onUpdateStatus:(fn:()=>void)=>()=>void;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
 // Each generated pet frame has its own texture, so fractional sizes cannot reveal adjacent poses.
-// Assets are a fixed, finite set. Retain successful decodes across motion changes.
-const frameTextures=new Map<string,Promise<HTMLImageElement>>();
-function loadFrame(url:string){
- let loaded=frameTextures.get(url);
- if(!loaded){const img=new Image();img.src=url;loaded=img.decode().then(()=>img);frameTextures.set(url,loaded);loaded.catch(()=>frameTextures.delete(url));}
- return loaded;
-}
 const FrameSprite=React.memo(function FrameSprite({src,frames,duration,animate,reverse=false,restart=0,atlas=false,carry=false}:{src:string;frames:number;duration:number;animate:boolean;reverse?:boolean;restart?:number;atlas?:boolean;carry?:boolean}){
  const first=reverse?frames-1:0,[cursor,setFrame]=useState({src,frame:first});
  const frame=cursor.src===src&&cursor.frame<frames?cursor.frame:first;

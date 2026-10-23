@@ -1,20 +1,22 @@
-import React,{useRef,useState} from 'react';
+import React,{useLayoutEffect,useRef} from 'react';
+import {loadFrame} from './sprite-textures';
 
-type ImageProps=Omit<React.ImgHTMLAttributes<HTMLImageElement>,'src'|'onLoad'|'onError'> & {src:string};
-type Request={id:string;props:ImageProps};
-// Keep the decoded DOM image on screen until its replacement is decoded too.
-// Reusing the pending element's key promotes that same element, without a blank paint.
-export const StableSpriteImage=React.memo(function StableSpriteImage({restart=0,...props}:ImageProps & {restart?:string|number}){
- const request:Request={id:props.src+'\0'+restart,props},latest=useRef(request);
- latest.current=request;
- const [shown,setShown]=useState<Request>();
- const visible=shown?.id===request.id?request:shown;
- const pending=shown?.id!==request.id;
- return <>
-  {visible&&<img key={visible.id} {...visible.props}/>}
-  {pending&&<img key={request.id} {...props} aria-hidden="true" style={{...props.style,position:'absolute',left:0,top:0,visibility:'hidden',pointerEvents:'none'}} onLoad={e=>{
-   const image=e.currentTarget,id=request.id;
-   void image.decode().then(()=>{if(image.isConnected&&latest.current.id===id)setShown(latest.current);},()=>{/* Keep the previous verified image. */});
-  }}/>}
- </>;
+type Props={src:string;restart?:string|number;className?:string;draggable?:boolean;style:React.CSSProperties;'data-frame':number;'data-frame-count':number;'data-cycle-duration':number;'data-playing':boolean;'data-reverse':boolean};
+// React owns the empty host; the cache owns its image nodes. A decoded image
+// atomically replaces the previous one, so a slow/failed request leaves it intact.
+export const StableSpriteImage=React.memo(function StableSpriteImage(props:Props){
+ const host=useRef<HTMLSpanElement>(null),previous=useRef<{src:string;restart?:string|number}|undefined>(undefined);
+ useLayoutEffect(()=>{
+  let active=true;
+  void loadFrame(props.src).then(image=>{
+   if(!active||!host.current)return;
+   image.className=props.className??'';image.draggable=props.draggable??false;image.alt='';
+   image.removeAttribute('style');Object.assign(image.style,props.style);
+   for(const name of ['data-frame','data-frame-count','data-cycle-duration','data-playing','data-reverse'] as const)image.setAttribute(name,String(props[name]));
+   if(host.current.firstChild!==image||previous.current?.restart!==props.restart)host.current.replaceChildren(image);
+   previous.current={src:props.src,restart:props.restart};
+  },()=>{/* Keep the last decoded frame when a replacement fails. */});
+  return()=>{active=false;};
+ },[props]);
+ return <span ref={host} style={{display:'contents'}}/>;
 });

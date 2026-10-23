@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,realpathSync} from 'node:fs';
 import {findMacCopies,macLaunchLocation,macLeftovers,runningMacCopies} from './input-diagnostics';
 import {Combo} from './combo';
-import {breedNames,breeds,catBreeds,catBreedNames} from './pets';
+import {breedNames,breeds,catBreeds,catBreedNames,spriteFor} from './pets';
 import {animationState} from './view-state';
 import {StateDelivery} from './state-delivery';
 import {InstalledUpdater,isUpdaterResource} from './installed-updater';
@@ -102,8 +102,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   win.on('closed',stopCarry);win.on('move',enforceMonitor);screen.on('display-removed',enforceMonitor);screen.on('display-metrics-changed',enforceMonitor);
   if(Number.isFinite(saved.x)&&Number.isFinite(saved.y)&&(options.multiMonitor?screen.getAllDisplays():[screen.getPrimaryDisplay()]).some(d=>saved.x!+petRect(options.size).x>=d.workArea.x-1&&saved.x!+petRect(options.size).x+petRect(options.size).width<=d.workArea.x+d.workArea.width+1&&saved.y!+petRect(options.size).y>=d.workArea.y-1&&saved.y!+248<=d.workArea.y+d.workArea.height+1)) {if(!positionWindow(saved.x,saved.y))center();}else center();
   const localSession=session.defaultSession;
+  let spriteLoadDelay=0; // Nonzero only in the packaged smoke test below.
   localSession.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));localSession.setPermissionCheckHandler(()=>false);localSession.setDevicePermissionHandler(()=>false);localSession.on('will-download',(e)=>e.preventDefault());
-  localSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isAppResource(d.url,distRoot)}));
+  localSession.webRequest.onBeforeRequest((d,cb)=>{const cancel=!isAppResource(d.url,distRoot);if(smoke&&!cancel&&spriteLoadDelay&&d.url.endsWith('.png'))setTimeout(()=>cb({cancel:false}),spriteLoadDelay);else cb({cancel});});
   const trusted=(e:Electron.IpcMainEvent|Electron.IpcMainInvokeEvent)=>{const sender=e.sender;return !quitting&&!win.isDestroyed()&&!sender.isDestroyed()&&(sender===win.webContents||(!!remote&&!remote.isDestroyed()&&sender===remote.webContents))&&isTrustedFrame(sender,e.senderFrame,indexFile);};
   if(!smoke&&app.isPackaged&&process.platform==='win32'&&(process.env.PORTABLE_EXECUTABLE_FILE||existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe')))){
    try{
@@ -272,6 +273,11 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    coreStore=undefined;const updateHistoryReport={reopened:true,cancelled:true,clearedAfterConfirmation:true};
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
    await win.webContents.executeJavaScript(`(()=>{const r=window.__spritePaint={active:true,paints:0,blank:0,incomplete:0};const check=()=>{if(!r.active)return;const images=[...document.querySelectorAll('.sprite img')].filter(img=>getComputedStyle(img).visibility!=='hidden');r.paints++;if(!images.length)r.blank++;else if(images.some(img=>!img.complete||!img.naturalWidth))r.incomplete++;requestAnimationFrame(check);};requestAnimationFrame(check);})()`);
+   spriteLoadDelay=60;
+   for(const dogBreed of breeds){win.webContents.send('state',{...state(),options:{...options,pet:'dog',dogBreed},action:'WALK',animate:true,carried:false});await new Promise(r=>setTimeout(r,80));}
+   for(const catBreed of catBreeds){win.webContents.send('state',{...state(),options:{...options,pet:'cat',catBreed},action:'WALK',animate:true,carried:false});await new Promise(r=>setTimeout(r,80));}
+   for(const parrotBreed of parrotBreeds){win.webContents.send('state',{...state(),options:{...options,pet:'parrot',parrotBreed},action:'WALK',animate:true,carried:false});await new Promise(r=>setTimeout(r,80));}
+   spriteLoadDelay=0;win.webContents.send('state',state());await new Promise(r=>setTimeout(r,150));
    await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));
    const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(currentVersion)})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+currentVersion)};})()`);
    if(!diagnosticsReady)throw Error('Input diagnostics or displayed app version missing');
@@ -337,8 +343,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     await remote!.webContents.executeJavaScript(`(()=>{const s=document.querySelector('#dog-breed');s.value=${JSON.stringify(breed)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,100));
     if(options.dogBreed!==breed||JSON.parse(readFileSync(settingsPath(),'utf8')).options.dogBreed!==breed)throw Error('Dog breed not saved');
     for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CLIMB_UP','CLIMB_DOWN','CARRY']){
-     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,100));
-     const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return !!img&&img.complete&&img.naturalWidth>0&&img.getAttribute('src').startsWith('./sprites/dog-'+${JSON.stringify(breed)}+'-');})()`);
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});
+     const prefix=spriteFor('dog',breed,action).src.replace('-atlas.png','-frame-');
+     const loaded=await win.webContents.executeJavaScript(`new Promise(resolve=>{const deadline=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img');if(img?.complete&&img.naturalWidth===100&&img.getAttribute('src').startsWith(${JSON.stringify(prefix)})&&img.dataset.reverse===${JSON.stringify(String(action==='CLIMB_DOWN'))})resolve(true);else if(Date.now()>deadline)resolve(false);else setTimeout(check,25);};check();})`);
      if(!loaded)throw Error('Dog animation failed: '+breed+' '+action);
      if(action.startsWith('CLIMB_')){const previousLadder=await win.webContents.executeJavaScript(`({extra:!!document.querySelector('.ladder'),movement:getComputedStyle(document.querySelector('.sprite')).animationName})`);if(previousLadder.extra||previousLadder.movement!=='none')throw Error('Dog ladder has extra prop or movement');}
      const timing=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),style=getComputedStyle(img);return {duration:Number(img.dataset.cycleDuration),name:style.animationName,width:img.naturalWidth,frames:Number(img.dataset.frameCount)};})()`);
@@ -362,8 +369,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     const selected=await remote!.webContents.executeJavaScript(`document.querySelector('#cat-breed')?.value`);if(selected!==breed)throw Error('Cat breed control not synchronized');
     if(JSON.parse(readFileSync(settingsPath(),'utf8')).options.catBreed!==breed)throw Error('Cat breed not saved');
     for(const action of ['IDLE','WALK','JUMP','FALL','LAND','DASH','ATTACK','SLEEP','CLIMB_UP','CLIMB_DOWN','CARRY']){
-     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,120));
-     const loaded=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img'),ladder=document.querySelector('.ladder');return {ready:!!img&&img.complete&&img.naturalWidth===100&&img.getAttribute('src').startsWith('./sprites/cat-'+${JSON.stringify(breed)}+'-'),ladder:ladder?.getAttribute('data-direction'),reverse:img?.dataset.reverse,ladderRatio:ladder?ladder.getBoundingClientRect().height/document.querySelector('.pet').getBoundingClientRect().height:0};})()`);
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});
+     const prefix=spriteFor('cat',options.dogBreed,action,breed).src.replace('-atlas.png','-frame-');
+     const loaded=await win.webContents.executeJavaScript(`new Promise(resolve=>{const deadline=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img'),ladder=document.querySelector('.ladder'),ready=!!img?.complete&&img.naturalWidth===100&&img.getAttribute('src').startsWith(${JSON.stringify(prefix)})&&img.dataset.reverse===${JSON.stringify(String(action==='CLIMB_DOWN'))};if(ready||Date.now()>deadline)resolve({ready,ladder:ladder?.getAttribute('data-direction'),reverse:img?.dataset.reverse,ladderRatio:ladder?ladder.getBoundingClientRect().height/document.querySelector('.pet').getBoundingClientRect().height:0});else setTimeout(check,25);};check();})`);
      if(!loaded.ready)throw Error('Cat action missing: '+breed+' '+action);
      if(action==='WALK'){const sway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(sway!=='walk-sway')throw Error('Cat natural sway missing');}
      if(action.startsWith('CLIMB_')&&(loaded.ladder!==(action==='CLIMB_DOWN'?'down':'up')||loaded.reverse!==String(action==='CLIMB_DOWN')))throw Error('Cat ladder direction missing');
@@ -434,7 +442,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(String(options.pet)!=='parrot'||options.parrotBreed!==breed||JSON.parse(readFileSync(settingsPath(),'utf8')).options.parrotBreed!==breed)throw Error('Parrot selection/persistence failed');landingUntil=0;
     for(const action of ['IDLE','WALK','CHIRP','CLIMB_UP','CLIMB_DOWN','FLY','DISPLAY','SLEEP','CARRY','LAND']){
      win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});
-     const bird=await win.webContents.executeJavaScript(`new Promise(resolve=>{const deadline=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img'),ready=!!img?.complete&&img.naturalWidth===100&&img.naturalHeight===110&&img.getAttribute('src').startsWith('./sprites/parrot-'+${JSON.stringify(breed)}+'-')&&document.querySelector('.pet')?.classList.contains(${JSON.stringify(action.toLowerCase())});if(ready||Date.now()>deadline)resolve({ready,reverse:img?.dataset.reverse,twig:!!document.querySelector('.parrot-twig'),src:img?.getAttribute('src')});else setTimeout(check,25);};check();})`);
+     const prefix=spriteFor('parrot',options.dogBreed,action,options.catBreed,breed).src.replace('-atlas.png','-frame-');
+     const bird=await win.webContents.executeJavaScript(`new Promise(resolve=>{const deadline=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img'),ready=!!img?.complete&&img.naturalWidth===100&&img.naturalHeight===110&&img.getAttribute('src').startsWith(${JSON.stringify(prefix)})&&img.dataset.reverse===${JSON.stringify(String(action==='CLIMB_DOWN'))}&&document.querySelector('.pet')?.classList.contains(${JSON.stringify(action.toLowerCase())});if(ready||Date.now()>deadline)resolve({ready,reverse:img?.dataset.reverse,twig:!!document.querySelector('.parrot-twig'),src:img?.getAttribute('src')});else setTimeout(check,25);};check();})`);
      if(!bird.ready)throw Error('Parrot action failed: '+breed+' '+action+' '+JSON.stringify(bird));
      if(action.startsWith('CLIMB_')&&(!bird.twig||bird.reverse!==String(action==='CLIMB_DOWN')))throw Error('Parrot branch direction failed');
      if(!action.startsWith('CLIMB_')&&bird.twig)throw Error('Parrot branch remained');
@@ -443,11 +452,10 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(!carried||!await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`))throw Error('Parrot carry failed');finishCarry();
     parrotReport.push({breed,actions:10,mouseSelection:true,persisted:true,footCarry:true});
    }
-   // Simulate slow decode and rapid replacement without touching any production assets.
-   await win.webContents.executeJavaScript(`(()=>{const decode=HTMLImageElement.prototype.decode;window.__restoreSpriteDecode=()=>{HTMLImageElement.prototype.decode=decode;};HTMLImageElement.prototype.decode=function(){return decode.call(this).then(()=>new Promise(resolve=>setTimeout(resolve,100)));};})()`);
+   // Rapid cached replacements must also keep a decoded image on every paint.
    for(let i=0;i<24;i++){const action=['WALK','FLY','SLEEP','CLIMB_DOWN'][i%4];win.webContents.send('state',{...state(),action,carried:false,animate:true});await new Promise(r=>setTimeout(r,40));}
-   await win.webContents.executeJavaScript(`window.__restoreSpriteDecode()`);await new Promise(r=>setTimeout(r,250));
-   const paintReport=await win.webContents.executeJavaScript(`(()=>{const r=window.__spritePaint;r.active=false;return {paints:r.paints,blank:r.blank,incomplete:r.incomplete,delayedDecodeTransitions:24};})()`);
+   await new Promise(r=>setTimeout(r,250));
+   const paintReport=await win.webContents.executeJavaScript(`(()=>{const r=window.__spritePaint;r.active=false;return {paints:r.paints,blank:r.blank,incomplete:r.incomplete,delayedLoadTransitions:16,rapidCachedTransitions:24};})()`);
    if(paintReport.paints<20||paintReport.blank||paintReport.incomplete)throw Error('Sprite paint continuity failed: '+JSON.stringify(paintReport));
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});

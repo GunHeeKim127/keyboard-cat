@@ -4,7 +4,8 @@ import {createHash,randomUUID,verify} from 'node:crypto';
 import {newerVersion} from './updates';
 import {CORE_PUBLIC_KEY} from './core-trust';
 export type CoreRuntime={electron:string;platform:string;arch:string;engineSha256:string;nativeSha256:string};
-export type CoreManifest={format:1;version:string;runtime:CoreRuntime;sha256:string;size:number;signature:string};
+export type CoreInstaller={name:string;sha256:string;size:number};
+export type CoreManifest={format:1;version:string;runtime:CoreRuntime;sha256:string;size:number;signature:string;installer?:CoreInstaller};
 export type CoreFailureCode='permission'|'input'|'screen'|'crash'|'interrupted'|'verification'|'download'|'switch';
 export type CoreFailure={version:string;code:CoreFailureCode;at:string;cancelled:boolean;resolved:boolean;manifest?:CoreManifest};
 type Journal={active?:CoreManifest;pending?:CoreManifest;attempted?:boolean;failure?:CoreFailure};
@@ -14,9 +15,9 @@ const sha=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v)
 export function validCoreManifest(value:unknown):value is CoreManifest{
  if(!value||typeof value!=='object')return false;
  const m=value as CoreManifest,r=m.runtime;
- return m.format===1&&version(m.version)&&sha(m.sha256)&&Number.isSafeInteger(m.size)&&m.size>0&&m.size<=256*1024*1024&&typeof m.signature==='string'&&/^[A-Za-z0-9+/]{86}==$/.test(m.signature)&&!!r&&typeof r.electron==='string'&&/^\d+\.\d+\.\d+$/.test(r.electron)&&['win32','darwin'].includes(r.platform)&&['x64','arm64'].includes(r.arch)&&sha(r.engineSha256)&&sha(r.nativeSha256);
+ return m.format===1&&version(m.version)&&sha(m.sha256)&&Number.isSafeInteger(m.size)&&m.size>0&&m.size<=256*1024*1024&&typeof m.signature==='string'&&/^[A-Za-z0-9+/]{86}==$/.test(m.signature)&&!!r&&typeof r.electron==='string'&&/^\d+\.\d+\.\d+$/.test(r.electron)&&['win32','darwin'].includes(r.platform)&&['x64','arm64'].includes(r.arch)&&sha(r.engineSha256)&&sha(r.nativeSha256)&&(!m.installer||(r.platform==='win32'&&m.installer.name===`Keyboard-Cat-${m.version}-setup.exe`&&sha(m.installer.sha256)&&Number.isSafeInteger(m.installer.size)&&m.installer.size>0&&m.installer.size<=512*1024*1024));
 }
-export function coreSigningData(m:Omit<CoreManifest,'signature'>){return Buffer.from(JSON.stringify([m.format,m.version,m.runtime.electron,m.runtime.platform,m.runtime.arch,m.runtime.engineSha256,m.runtime.nativeSha256,m.sha256,m.size]));}
+export function coreSigningData(m:Omit<CoreManifest,'signature'>){return Buffer.from(JSON.stringify([m.format,m.version,m.runtime.electron,m.runtime.platform,m.runtime.arch,m.runtime.engineSha256,m.runtime.nativeSha256,m.sha256,m.size,m.installer?[m.installer.name,m.installer.sha256,m.installer.size]:null]));}
 export function signedCore(m:unknown,key=CORE_PUBLIC_KEY):m is CoreManifest{try{return validCoreManifest(m)&&verify(null,coreSigningData(m),key,Buffer.from(m.signature,'base64'));}catch{return false;}}
 export function sameCoreRuntime(a:CoreRuntime,b:CoreRuntime){return a.electron===b.electron&&a.platform===b.platform&&a.arch===b.arch&&a.engineSha256===b.engineSha256&&a.nativeSha256===b.nativeSha256;}
 export function fileHash(file:string){const h=createHash('sha256'),fd=fs.openSync(file,'r'),buffer=Buffer.allocUnsafe(1024*1024);try{let n;while((n=fs.readSync(fd,buffer,0,buffer.length,null))>0)h.update(buffer.subarray(0,n));return h.digest('hex');}finally{fs.closeSync(fd);}}

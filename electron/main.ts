@@ -18,6 +18,7 @@ import {CoreStore} from './core-store';
 import {coreRuntime} from './core-runtime';
 import {CoreUpdater} from './core-updater';
 import {coreFailureInfo} from './core-failure';
+import {InstallerGate} from './installer-gate';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
@@ -38,6 +39,7 @@ let diagnosticReport='';
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
+let installerGate:InstallerGate|undefined;
 const buildLabel='런처·기능 묶음 분리 업데이트 · 기존 모션 유지';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function inputReport(){
@@ -106,6 +108,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   if(!smoke&&app.isPackaged&&process.platform==='win32'&&(process.env.PORTABLE_EXECUTABLE_FILE||existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe')))){
    try{
    managedUpdateFiles=new ManagedUpdateFiles(app.getPath('userData'),process.env.LOCALAPPDATA||path.join(app.getPath('home'),'AppData','Local'));
+   coreStore=new CoreStore(app.getPath('userData'),app.getVersion(),coreRuntime(process.execPath,process.resourcesPath,process.platform,process.arch,process.versions.electron));installerGate=new InstallerGate(coreStore);
    const updater=new WindowsFolderUpdater(managedUpdateFiles.root),updateSession=updater.netSession;
    // NSIS may inherit the old portable launcher's environment during migration.
    // An actual installed bundle always wins over that stale environment variable.
@@ -120,7 +123,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(portable){await managedUpdateFiles!.checkInstallDirectory();await managedUpdateFiles!.rememberPortable(portable,currentVersion,target);}
     else await updateRecovery!.prepare(path.dirname(app.getPath('exe')),currentVersion,target);
     if(quitting)throw Error('Application is quitting');
-   },(files,target)=>managedUpdateFiles!.rememberDownload(files,target,installDirectory));
+   },async(files,target)=>{installerGate!.verify(files,target);await managedUpdateFiles!.rememberDownload(files,target,installDirectory);});
    }catch{installedUpdater=undefined;updateRecovery=undefined;managedUpdateFiles=undefined;}
   }
   if(supervised&&!smoke){
@@ -157,6 +160,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      }
      if(!installedUpdater)return await updates.download();
      const target=updates.selectedInstaller();if(!target)return false;
+     if(!await installerGate?.authorize(core)){try{coreStore?.noteFailure(target.version,'verification');}catch{}return {status:'error',message:'개발자 서명이 있는 설치 정보를 확인하지 못해 자동 설치를 중단했어요. 현재 앱은 유지됩니다. 릴리스 내용을 확인해 주세요.',installation:installation(),failure:failure()};}
      await installedUpdater.update(target.version,target.asset,quitForUpdate);
      return {status:'available',message:'',installation:installedUpdater.state};
     }

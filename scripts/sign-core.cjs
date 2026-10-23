@@ -8,6 +8,11 @@ if(crypto.createPublicKey(key).export({type:'spki',format:'pem'})!==CORE_PUBLIC_
 for(const name of fs.readdirSync(directory).filter(n=>/^Keyboard-Cat-\d+\.\d+\.\d+-core-(win32|darwin)-(x64|arm64)\.unsigned\.json$/.test(n))){
  const m=JSON.parse(fs.readFileSync(path.join(directory,name),'utf8')),archive=path.join(directory,name.replace('.unsigned.json','.asar'));
  if(fs.statSync(archive).size!==m.size||fileHash(archive)!==m.sha256)throw Error('Core archive changed');
+ if(m.runtime.platform==='win32'){
+  if(!m.installer||m.installer.name!==`Keyboard-Cat-${m.version}-setup.exe`)throw Error('Missing signed installer metadata');
+  const installer=path.join(directory,m.installer.name);
+  if(fs.statSync(installer).size!==m.installer.size||fileHash(installer)!==m.installer.sha256)throw Error('Installer changed');
+ }
  m.signature=crypto.sign(null,coreSigningData(m),key).toString('base64');if(!signedCore(m))throw Error('Invalid release manifest');
  const target=path.join(directory,name.replace('.unsigned.json','.json'));fs.writeFileSync(target,JSON.stringify(m,null,2)+'\n');console.log('Signed '+path.basename(target));
 }

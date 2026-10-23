@@ -14,6 +14,8 @@ module.exports=async context=>{
   const name=`Keyboard-Cat-${version}-core-${platform}-${arch}`,file=path.join(root,name+'.asar');
   fs.copyFileSync(archive,file);
   const manifest={format:1,version,runtime,sha256:fileHash(file),size:fs.statSync(file).size};
+  const installer=path.join(root,`Keyboard-Cat-${version}-setup.exe`);
+  if(platform==='win32'&&fs.existsSync(installer))manifest.installer={name:path.basename(installer),sha256:fileHash(installer),size:fs.statSync(installer).size};
   const metadata=path.join(root,name+'.unsigned.json');fs.writeFileSync(metadata,JSON.stringify(manifest,null,2)+'\n');result.push(file,metadata);
  }
  return result;

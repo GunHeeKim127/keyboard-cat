@@ -16,4 +16,5 @@ const fs=require('node:fs'),crypto=require('node:crypto');
 const nativeSource=process.platform==='darwin'?'native/KeyCounter-mac.c':'native/KeyCounter.cs';
 const nativeBinary=process.platform==='darwin'?'native/KeyCounter-mac':'native/KeyCounter.exe';
 const hash=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-fs.writeFileSync('build/core-host.json',JSON.stringify({format:1,nativeRevision:hash(nativeSource),helperBinarySha256:hash(nativeBinary)}));
+const nativeRevision=crypto.createHash('sha256').update(fs.readFileSync(nativeSource,'utf8').replace(/\r\n/g,'\n')).digest('hex');
+fs.writeFileSync('build/core-host.json',JSON.stringify({format:1,nativeRevision,helperBinarySha256:hash(nativeBinary)}));

@@ -206,6 +206,14 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   }
   app.on('before-quit',()=>{save();quitting=true;clearInterval(timer);if(coreHealthTimer)clearInterval(coreHealthTimer);if(startupTimer)clearInterval(startupTimer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
   if(smoke){try{
+   if(process.platform==='win32'&&app.isPackaged){
+    // Exercise physical ASAR backup inside Electron, not only Node unit tests.
+    const recovery=new UpdateRecovery(app.getPath('userData'));
+    await recovery.prepare(path.dirname(process.execPath),currentVersion,'99.0.0');
+    const recovered=await recovery.confirm('99.0.0',path.dirname(process.execPath));
+    if(recovered.removed!==1||recovered.retained)throw Error('Physical packaged recovery failed');
+    console.log('PHYSICAL_ASAR_RECOVERY_OK');
+   }
    const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
    const updateClient=new NsisUpdater(),updateSmoke=new InstalledUpdater(updateClient,currentVersion);
    const folderClient=new WindowsFolderUpdater(path.join(app.getPath('userData'),'managed-updater-smoke'));

@@ -1,4 +1,5 @@
-import {promises as fs,createReadStream} from 'node:fs';
+import {coreFs} from './core-io';
+const {promises:fs,createReadStream}=coreFs;
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {newerVersion} from './updates';

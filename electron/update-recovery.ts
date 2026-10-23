@@ -1,4 +1,5 @@
-import {promises as fs,createReadStream} from 'node:fs';
+import {coreFs} from './core-io';
+const {promises:fs,createReadStream}=coreFs;
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {newerVersion} from './updates';
@@ -11,7 +12,7 @@ export function isBundlePath(name:string){
  const parts=name.split('/');
  if(parts.length===1)return name==='Keyboard Cat.exe'||name==='vk_swiftshader_icd.json'||/\.(dll|pak|bin|dat)$/.test(name);
  if(parts.length===2&&parts[0]==='locales')return parts[1].endsWith('.pak');
- if(parts.length===2&&parts[0]==='resources')return ['app.asar','app-update.yml','KeyCounter.exe','elevate.exe'].includes(parts[1]);
+ if(parts.length===2&&parts[0]==='resources')return ['app.asar','app-update.yml','core-host.json','KeyCounter.exe','elevate.exe'].includes(parts[1]);
  return parts.length>=3&&parts[0]==='resources'&&parts[1]==='app.asar.unpacked';
 }
 async function hash(file:string){const h=createHash('sha256');for await(const chunk of createReadStream(file))h.update(chunk);return h.digest('hex');}

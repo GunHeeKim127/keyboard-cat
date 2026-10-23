@@ -5,6 +5,7 @@ function fixture(t){
  for(const dir of [source,data,path.join(source,'resources'),path.join(source,'locales'),path.join(source,'personal')])fs.mkdirSync(dir,{recursive:true});
  for(const [name,body]of [['Keyboard Cat.exe','old executable'],['resources/app.asar','old resources'],['resources/app-update.yml','fixed feed'],['locales/en-US.pak','locale'],['Uninstall Keyboard Cat.exe','uninstaller'],['personal/notes.txt','personal'],['notes.txt','user file']])fs.writeFileSync(path.join(source,name),body);
  fs.writeFileSync(path.join(data,'settings.json'),'keep settings');
+ fs.writeFileSync(path.join(source,'resources','core-host.json'),'{"format":1,"nativeRevision":"host-fixture"}');
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const recovery=new UpdateRecovery(data),ids=()=>fs.readdirSync(recovery.root).filter(n=>!n.startsWith('.'));
  return {root,source,data,recovery,ids};
@@ -13,6 +14,7 @@ test('application backup preserves current files and waits for the matching newe
  const {source,data,recovery,ids}=fixture(t);await recovery.prepare(source,'1.3.17','1.3.18');
  const id=ids()[0],backup=path.join(recovery.root,id,'app');
  assert.equal(fs.readFileSync(path.join(backup,'Keyboard Cat.exe'),'utf8'),'old executable');
+ assert.equal(fs.readFileSync(path.join(backup,'resources','core-host.json'),'utf8'),'{"format":1,"nativeRevision":"host-fixture"}');
  for(const name of ['notes.txt','personal','Uninstall Keyboard Cat.exe'])assert.equal(fs.existsSync(path.join(backup,name)),false);
  assert.deepEqual(await recovery.confirm('1.3.17',source),{removed:0,retained:1});
  assert.deepEqual(await recovery.confirm('1.3.18',data),{removed:0,retained:1});

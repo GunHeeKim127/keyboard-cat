@@ -6,8 +6,10 @@ import {spawn} from 'node:child_process';
 import {CoreStore} from './core-store';
 import {coreRuntime} from './core-runtime';
 import {CoreSupervisor} from './core-supervisor';
+import {useSupervisor} from './launcher-policy';
 const worker=process.argv.includes('--keyboard-cat-core-worker');
-if(!['win32','darwin'].includes(process.platform)||!app.isPackaged||process.argv.includes('--smoke-test'))require('./main');
+const installed=fs.existsSync(path.join(path.dirname(process.execPath),'Uninstall Keyboard Cat.exe'));
+if(!useSupervisor(process.platform,app.isPackaged,process.argv.includes('--smoke-test'),!!process.env.PORTABLE_EXECUTABLE_FILE,installed))require('./main');
 else{
  const runtime=coreRuntime(process.execPath,process.resourcesPath,process.platform,process.arch,process.versions.electron);
  const base=app.getVersion(),profile=app.getPath('userData'),store=new CoreStore(profile,base,runtime);

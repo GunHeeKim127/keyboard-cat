@@ -72,3 +72,6 @@ test('healthy newer full app clears older failure and retires only signed unchan
  const f=fixture(t),a=f.put(f.make());f.store.stage(a);f.store.candidate();f.store.confirm(a);f.store.noteFailure('2.1.3','download');f.store.cancel();const next=new CoreStore(f.dir,'3.0.0',{...f.runtime,electron:'43.0.0'},f.pub);assert.equal(next.active(),undefined);assert.equal(next.confirmBundled(),true);assert.equal(next.failure(),undefined);assert(!fs.existsSync(f.store.file(a)));
  const failed=fixture(t);failed.store.noteFailure('2.1.3','download');assert.equal(failed.store.confirmBundled(),false);assert(failed.store.failure());
 });
+test('Windows portable migrates once; installed launchers ignore stale portable flags',()=>{
+ const {useSupervisor}=require('../dist-electron/launcher-policy');assert.equal(useSupervisor('win32',true,false,true,false),false);assert.equal(useSupervisor('win32',true,false,true,true),true);assert.equal(useSupervisor('win32',true,false,false,true),true);assert.equal(useSupervisor('darwin',true,false,false,false),true);assert.equal(useSupervisor('darwin',false,false,false,false),false);assert.equal(useSupervisor('win32',true,true,false,true),false);
+});

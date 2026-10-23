@@ -1,0 +1,74 @@
+name: Verify launcher v2
+run-name: Launcher v2 verification - ${{ github.sha }}
+on:
+  push:
+    branches: ['codex/launcher-2.1.1']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: launcher-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            arch: x64
+            platform: win32
+            build: npx --no-install electron-builder --win nsis portable --publish never
+            app: release/win-unpacked
+          - os: macos-15
+            arch: arm64
+            platform: darwin
+            build: npx --no-install electron-builder --mac dmg zip --arm64 --publish never
+            app: release/mac-arm64/Keyboard Cat.app
+          - os: macos-15-intel
+            arch: x64
+            platform: darwin
+            build: npx --no-install electron-builder --mac dmg zip --x64 --publish never
+            app: release/mac/Keyboard Cat.app
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: node scripts/check-native.cjs
+      - run: ${{ matrix.build }}
+      - name: Test real packaged application and all existing pets
+        run: node scripts/run-packaged-smoke.cjs "${{ matrix.app }}"
+      - name: Test real launcher processes, promotion, crash, permission and interruption rollback
+        run: node scripts/test-launcher-runtime.cjs "${{ matrix.app }}"
+      - name: Preserve verification reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: launcher-reports-${{ matrix.platform }}-${{ matrix.arch }}
+          path: work/launcher-reports/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Preserve checked distribution files (no public release)
+        uses: actions/upload-artifact@v6
+        with:
+          name: launcher-build-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+            release/*-mac-${{ matrix.arch }}.dmg
+            release/*-mac-${{ matrix.arch }}.zip
+            release/*-core-${{ matrix.platform }}-${{ matrix.arch }}.asar
+            release/*-core-${{ matrix.platform }}-${{ matrix.arch }}.unsigned.json
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14

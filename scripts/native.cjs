@@ -9,3 +9,11 @@ if(process.platform==='win32'){
  fs.chmodSync('native/KeyCounter-mac',0o755);
  execFileSync('codesign',['--force','--sign','-','--identifier','local.keyboardcat.pet.input','native/KeyCounter-mac'],{stdio:'inherit'});
 }else throw Error('Only Windows and macOS builds are supported');
+// Compiler build IDs/signature blobs may change without changing the helper's
+// protocol. Use its source revision for payload compatibility, and keep a
+// separate hash to verify the particular installed helper has not changed.
+const fs=require('node:fs'),crypto=require('node:crypto');
+const nativeSource=process.platform==='darwin'?'native/KeyCounter-mac.c':'native/KeyCounter.cs';
+const nativeBinary=process.platform==='darwin'?'native/KeyCounter-mac':'native/KeyCounter.exe';
+const hash=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+fs.writeFileSync('build/core-host.json',JSON.stringify({format:1,nativeRevision:hash(nativeSource),helperBinarySha256:hash(nativeBinary)}));

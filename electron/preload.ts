@@ -1,7 +1,7 @@
 import {contextBridge,ipcRenderer} from 'electron';
 contextBridge.exposeInMainWorld('cat',{
  snapshot:()=>ipcRenderer.invoke('snapshot'),
- updates:(action:'check'|'download'|'notes'|'status'|'install')=>ipcRenderer.invoke('updates',action),
+ updates:(action:'check'|'download'|'notes'|'status'|'install'|'retry-core'|'cancel-core')=>ipcRenderer.invoke('updates',action),
  onState:(fn:(s:unknown)=>void)=>{const cb=(_:unknown,s:unknown)=>fn(s);ipcRenderer.on('state',cb);return()=>ipcRenderer.removeListener('state',cb);},
  lock:()=>ipcRenderer.send('command','lock'),
  command:(value:string)=>ipcRenderer.send('command',value),

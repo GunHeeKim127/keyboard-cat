@@ -14,12 +14,20 @@ import {InstalledUpdater,isUpdaterResource} from './installed-updater';
 import {UpdateRecovery} from './update-recovery';
 import {ManagedUpdateFiles} from './managed-update-files';
 import {WindowsFolderUpdater} from './windows-updater';
+import {CoreStore} from './core-store';
+import {coreRuntime} from './core-runtime';
+import {CoreUpdater} from './core-updater';
+import {coreFailureInfo} from './core-failure';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
 import {InputMonitor,inputError} from './input-monitor';
 import {isAppResource,isTrustedFrame,readSettings} from './security';
 const distRoot=path.join(__dirname,'../dist'),indexFile=path.join(distRoot,'index.html');
+const currentVersion=JSON.parse(readFileSync(path.join(__dirname,'../package.json'),'utf8')).version as string;
+const supervised=process.argv.includes('--keyboard-cat-core-worker')&&!!process.send&&process.connected;
+let coreUpdater:CoreUpdater|undefined,coreHealthTimer:ReturnType<typeof setInterval>|undefined;
+let coreStore:CoreStore|undefined;
 let win:BrowserWindow,remote:BrowserWindow|undefined,tray:Tray;
 let options:Options={...presets.low},paused=false,moving=false,quitting=false,hookError='',effect=0,effectAt=0,lastHit=Date.now(),direction=1;
 const petDelivery=new StateDelivery(),controllerDelivery=new StateDelivery(true);
@@ -30,16 +38,16 @@ let diagnosticReport='';
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
-const buildLabel='앵무새 5종 · 표시 처리 최적화 · 기존 모션 유지';
-const updates=new UpdateChecker(app.getVersion(),process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
+const buildLabel='런처·기능 묶음 분리 업데이트 · 기존 모션 유지';
+const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
- return [`Keyboard Cat ${app.getVersion()} · ${buildLabel}`,`OS: ${process.platform} ${process.getSystemVersion()} / ${process.arch}`,`상태: ${inputMonitor.status}`,`실행 위치: ${process.platform==='darwin'?macLaunchLocation(app.getPath('exe')):'Windows'}`,`실행 파일: ${app.getPath('exe')}`,`입력 보조 프로그램: ${helper}`,`보조 프로그램 존재: ${existsSync(helper)}`,`앱 설정 파일: ${settingsPath()} (존재: ${existsSync(settingsPath())})`,`연결 진단: ${JSON.stringify(inputMonitor.diagnostics)}`,...(process.platform==='darwin'?['발견한 앱 복사본(표준 설치·다운로드·바탕화면·마운트 루트만 확인):',...copies.map(p=>'  '+p),...(!copies.length?['  없음 또는 폴더 접근 불가']:[]),'실행 중인 앱/보조 프로그램(PID · 경로):',...runningMacCopies(),'남아 있는 앱 전용 설정·캐시 위치(현재 사용 중인 데이터도 포함):',...macLeftovers(app.getPath('home'),app.getPath('userData')),'이 위치들이 존재한다고 권한 오류의 원인이라는 뜻은 아닙니다. 권한 승인은 macOS가 별도로 관리하며 앱 삭제로 초기화됐는지 확인할 수 없습니다.','같은 앱의 복사본이 있어도 버전·실행 여부까지 의미하지 않습니다. 임의 하위 폴더·설정 파일·권한 DB는 검사하거나 변경하지 않습니다.']:[]),'키 내용과 입력 횟수는 이 보고서에 포함되지 않습니다. 실행 경로에 사용자 이름이 있을 수 있으니 공유 전에 확인하세요.'].join('\n');
+ return [`Keyboard Cat ${currentVersion} · ${buildLabel}`,`OS: ${process.platform} ${process.getSystemVersion()} / ${process.arch}`,`상태: ${inputMonitor.status}`,`실행 위치: ${process.platform==='darwin'?macLaunchLocation(app.getPath('exe')):'Windows'}`,`실행 파일: ${app.getPath('exe')}`,`입력 보조 프로그램: ${helper}`,`보조 프로그램 존재: ${existsSync(helper)}`,`앱 설정 파일: ${settingsPath()} (존재: ${existsSync(settingsPath())})`,`연결 진단: ${JSON.stringify(inputMonitor.diagnostics)}`,...(process.platform==='darwin'?['발견한 앱 복사본(표준 설치·다운로드·바탕화면·마운트 루트만 확인):',...copies.map(p=>'  '+p),...(!copies.length?['  없음 또는 폴더 접근 불가']:[]),'실행 중인 앱/보조 프로그램(PID · 경로):',...runningMacCopies(),'남아 있는 앱 전용 설정·캐시 위치(현재 사용 중인 데이터도 포함):',...macLeftovers(app.getPath('home'),app.getPath('userData')),'이 위치들이 존재한다고 권한 오류의 원인이라는 뜻은 아닙니다. 권한 승인은 macOS가 별도로 관리하며 앱 삭제로 초기화됐는지 확인할 수 없습니다.','같은 앱의 복사본이 있어도 버전·실행 여부까지 의미하지 않습니다. 임의 하위 폴더·설정 파일·권한 DB는 검사하거나 변경하지 않습니다.']:[]),'키 내용과 입력 횟수는 이 보고서에 포함되지 않습니다. 실행 경로에 사용자 이름이 있을 수 있으니 공유 전에 확인하세요.'].join('\n');
 }
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',testProfile);}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function state(){const now=Date.now();const view=options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:app.getVersion(),platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
+function state(){const now=Date.now();const view=options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state();if(petDelivery.changed(value)){stateMessages++;win.webContents.send('state',value);}if(remote&&!remote.isDestroyed()&&controllerDelivery.changed(value))remote.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
 const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}},status=>{hookError=inputError(status);send();refresh();});
@@ -107,23 +115,46 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    updateSession.setPermissionRequestHandler((_c,_p,cb)=>cb(false));updateSession.setPermissionCheckHandler(()=>false);
    updateSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isUpdaterResource(d.url)}));
    updateRecovery=new UpdateRecovery(app.getPath('userData'));
-   installedUpdater=new InstalledUpdater(updater,app.getVersion(),()=>{if(installQuitArmed){installQuitArmed=false;quitting=false;}},async target=>{
+   installedUpdater=new InstalledUpdater(updater,currentVersion,()=>{if(installQuitArmed){installQuitArmed=false;quitting=false;}},async target=>{
     if(quitting)throw Error('Application is quitting');
-    if(portable){await managedUpdateFiles!.checkInstallDirectory();await managedUpdateFiles!.rememberPortable(portable,app.getVersion(),target);}
-    else await updateRecovery!.prepare(path.dirname(app.getPath('exe')),app.getVersion(),target);
+    if(portable){await managedUpdateFiles!.checkInstallDirectory();await managedUpdateFiles!.rememberPortable(portable,currentVersion,target);}
+    else await updateRecovery!.prepare(path.dirname(app.getPath('exe')),currentVersion,target);
     if(quitting)throw Error('Application is quitting');
    },(files,target)=>managedUpdateFiles!.rememberDownload(files,target,installDirectory));
    }catch{installedUpdater=undefined;updateRecovery=undefined;managedUpdateFiles=undefined;}
   }
+  if(supervised&&!smoke){
+   const store=new CoreStore(app.getPath('userData'),app.getVersion(),coreRuntime(process.execPath,process.resourcesPath,process.platform,process.arch,process.versions.electron));coreStore=store;
+   coreUpdater=new CoreUpdater(store,()=>{process.send!({type:'core-switch'},error=>{if(error){quitting=false;app.quit();return;}app.quit();});});
+   if(process.env.KEYBOARD_CAT_CORE_ROLLBACK==='1')coreUpdater.state.message='새 기능 묶음의 정상 실행을 확인하지 못해 이전 버전으로 돌아왔어요.';
+   process.on('message',message=>{const type=(message as {type?:unknown})?.type;if(type==='core-activate')void openRemote();else if(type==='core-quit')app.quit();});
+   process.on('disconnect',()=>app.quit());
+  }
   ipcMain.handle('snapshot',e=>{if(trusted(e))return state();});
-  const quitForUpdate=(version:string,asset:string)=>{const target=updates.selectedInstaller();if(!target||target.version!==version||target.asset!==asset)throw Error('Selected update changed');save();installQuitArmed=true;quitting=true;};
+  const quitForUpdate=(version:string,asset:string)=>{const target=updates.selectedInstaller();if(!target||target.version!==version||target.asset!==asset)throw Error('Selected update changed');save();installQuitArmed=true;quitting=true;if(supervised)process.send!({type:'core-installer'});};
+  const installation=()=>coreUpdater&&coreUpdater.state.phase!=='idle'?coreUpdater.state:installedUpdater?.state??coreUpdater?.state;
+  const failure=()=>coreFailureInfo(coreStore?.failure(),process.platform);
   ipcMain.handle('updates',async(e,action:unknown)=>{
    if(quitting||!trusted(e)||e.sender!==remote?.webContents)return undefined;
    try{
-    if(action==='check'){const info=await updates.check(),target=updates.selectedInstaller();installedUpdater?.invalidate(target?.version,target?.asset);return {...info,installation:installedUpdater?.state};}
-    if(action==='status')return {status:'current',message:'',installation:installedUpdater?.state};
+    if(action==='check'){const info=await updates.check(),target=updates.selectedInstaller();installedUpdater?.invalidate(target?.version,target?.asset);return {...info,coreReady:!!coreUpdater&&info.coreReady,installation:installation(),failure:failure()};}
+    if(action==='status')return {status:'current',message:'',installation:installation(),failure:failure()};
+    if(action==='cancel-core'){coreStore?.cancel();if(coreUpdater)coreUpdater.state={phase:'idle',progress:0,message:'이번 업데이트를 취소하고 이전 버전을 유지해요.',mode:'core'};return {status:'current',message:'이번 업데이트를 취소하고 이전 버전을 유지해요.',installation:installation(),failure:failure()};}
+    if(action==='retry-core'){
+     if(!coreUpdater)return false;
+     await updates.check();const core=updates.selectedCore();
+     const cached=coreStore?.failure()?.manifest;
+     if((!core||core.archive.sha256===cached?.sha256)&&coreUpdater.retry(()=>{if(quitting)throw Error('Quitting');save();quitting=true;}))return true;
+     if(!core)return {status:'error',message:'받을 수 있는 기능 묶음이 없어요. 업데이트를 다시 확인해 주세요.',failure:failure()};
+     await coreUpdater.update(core,()=>{save();quitting=true;});return {status:'available',message:'',installation:installation(),failure:failure()};
+    }
     if(action==='install')return installedUpdater?.install(quitForUpdate)??false;
     if(action==='download'){
+     const core=updates.selectedCore();
+     if(coreUpdater&&core){
+      const result=await coreUpdater.update(core,()=>{if(quitting||updates.selectedCore()!==core)throw Error('Selected core changed');save();quitting=true;});
+      if(result!=='fallback')return {status:'available',message:'',installation:coreUpdater.state,failure:failure()};
+     }
      if(!installedUpdater)return await updates.download();
      const target=updates.selectedInstaller();if(!target)return false;
      await installedUpdater.update(target.version,target.asset,quitForUpdate);
@@ -154,18 +185,26 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      const healthy=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img,.carry-image');return document.readyState==='complete'&&!!window.cat&&!!img&&img.complete&&img.naturalWidth>0;})()`);
      if(healthy&&!quitting&&!win.isDestroyed()){
       const directory=path.dirname(app.getPath('exe'));
-      const backup=updateRecovery?await updateRecovery.confirm(app.getVersion(),directory):{removed:0,retained:0};
-      const files=managedUpdateFiles?await managedUpdateFiles.confirm(app.getVersion(),directory):{removed:0,retained:0};
+      const backup=updateRecovery?await updateRecovery.confirm(currentVersion,directory):{removed:0,retained:0};
+      const files=managedUpdateFiles?await managedUpdateFiles.confirm(currentVersion,directory):{removed:0,retained:0};
       const result={removed:backup.removed+files.removed,retained:backup.retained+files.retained};
       installedUpdater?.startupConfirmed(result);if(!result.retained){if(startupTimer)clearInterval(startupTimer);startupTimer=undefined;}
      }
     }catch{/* A failed startup keeps the previous copy. */}finally{checking=false;}
    },1000);
   }
-  app.on('before-quit',()=>{quitting=true;clearInterval(timer);if(startupTimer)clearInterval(startupTimer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
+  if(supervised&&!smoke){
+   let checking=false,ticks=0;
+   coreHealthTimer=setInterval(async()=>{
+    if(checking||quitting||win.isDestroyed()||++ticks<5)return;
+    checking=true;
+    try{const healthy=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img,.carry-image');return document.readyState==='complete'&&!!window.cat&&!!img&&img.complete&&img.naturalWidth>0;})()`);if(!quitting){process.send?.({type:'core-health',screen:healthy,input:inputMonitor.status});if(healthy&&inputMonitor.status==='ready'){process.send?.({type:'core-ready',screen:true,input:true});if(coreHealthTimer)clearInterval(coreHealthTimer);coreHealthTimer=undefined;}}}catch{}finally{checking=false;}
+   },1000);
+  }
+  app.on('before-quit',()=>{save();quitting=true;clearInterval(timer);if(coreHealthTimer)clearInterval(coreHealthTimer);if(startupTimer)clearInterval(startupTimer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
   if(smoke){try{
    const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
-   const updateClient=new NsisUpdater(),updateSmoke=new InstalledUpdater(updateClient,app.getVersion());
+   const updateClient=new NsisUpdater(),updateSmoke=new InstalledUpdater(updateClient,currentVersion);
    const folderClient=new WindowsFolderUpdater(path.join(app.getPath('userData'),'managed-updater-smoke'));
    if(!(folderClient as unknown as {httpExecutor:unknown}).httpExecutor)throw Error('Managed updater HTTP transport missing');
    if(updateClient.autoDownload||updateClient.autoInstallOnAppQuit||updateClient.allowDowngrade||!updateClient.disableWebInstaller||await updateSmoke.install(()=>{throw Error('Unprepared installer ran');}))throw Error('Installed updater initialization failed');
@@ -206,7 +245,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    if(invalidUpdate!==undefined)throw Error('Unknown update action accepted');
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
    await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));
-   const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(app.getVersion())})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+app.getVersion())};})()`);
+   const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(currentVersion)})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+currentVersion)};})()`);
    if(!diagnosticsReady)throw Error('Input diagnostics or displayed app version missing');
    await remote!.webContents.executeJavaScript(`(()=>{const input=document.querySelector('#avatar-name');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'테스트 나비');input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
    await new Promise(r=>setTimeout(r,80));

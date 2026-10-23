@@ -144,6 +144,7 @@ dist
 /native/*.exe
 /native/KeyCounter-mac
 /native/.build/
+/build/core-host.json
 
 /work/
 

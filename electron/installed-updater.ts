@@ -1,6 +1,6 @@
 import type {NsisUpdater} from 'electron-updater';
 import {newerVersion} from './updates';
-export type InstallState={phase:'idle'|'checking'|'downloading'|'ready'|'installing'|'error';progress:number;message:string};
+export type InstallState={phase:'idle'|'checking'|'downloading'|'ready'|'installing'|'error';progress:number;message:string;mode?:'core'};
 export type UpdaterClient=Pick<NsisUpdater,'autoDownload'|'autoInstallOnAppQuit'|'allowPrerelease'|'allowDowngrade'|'disableWebInstaller'|'disableDifferentialDownload'|'setFeedURL'|'on'|'checkForUpdates'|'downloadUpdate'|'quitAndInstall'>;
 export function isUpdaterResource(value:string){
  try{

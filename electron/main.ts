@@ -4,7 +4,7 @@ import {UpdateChecker} from './updates';
 import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,realpathSync} from 'node:fs';
 import {findMacCopies,macLaunchLocation,macLeftovers,runningMacCopies} from './input-diagnostics';
 import {Combo} from './combo';
 import {breedNames,breeds,catBreeds,catBreedNames} from './pets';
@@ -45,7 +45,7 @@ function inputReport(){
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
  return [`Keyboard Cat ${currentVersion} · ${buildLabel}`,`OS: ${process.platform} ${process.getSystemVersion()} / ${process.arch}`,`상태: ${inputMonitor.status}`,`실행 위치: ${process.platform==='darwin'?macLaunchLocation(app.getPath('exe')):'Windows'}`,`실행 파일: ${app.getPath('exe')}`,`입력 보조 프로그램: ${helper}`,`보조 프로그램 존재: ${existsSync(helper)}`,`앱 설정 파일: ${settingsPath()} (존재: ${existsSync(settingsPath())})`,`연결 진단: ${JSON.stringify(inputMonitor.diagnostics)}`,...(process.platform==='darwin'?['발견한 앱 복사본(표준 설치·다운로드·바탕화면·마운트 루트만 확인):',...copies.map(p=>'  '+p),...(!copies.length?['  없음 또는 폴더 접근 불가']:[]),'실행 중인 앱/보조 프로그램(PID · 경로):',...runningMacCopies(),'남아 있는 앱 전용 설정·캐시 위치(현재 사용 중인 데이터도 포함):',...macLeftovers(app.getPath('home'),app.getPath('userData')),'이 위치들이 존재한다고 권한 오류의 원인이라는 뜻은 아닙니다. 권한 승인은 macOS가 별도로 관리하며 앱 삭제로 초기화됐는지 확인할 수 없습니다.','같은 앱의 복사본이 있어도 버전·실행 여부까지 의미하지 않습니다. 임의 하위 폴더·설정 파일·권한 DB는 검사하거나 변경하지 않습니다.']:[]),'키 내용과 입력 횟수는 이 보고서에 포함되지 않습니다. 실행 경로에 사용자 이름이 있을 수 있으니 공유 전에 확인하세요.'].join('\n');
 }
-if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',testProfile);}
+if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',realpathSync(testProfile));}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
 function state(){const now=Date.now();const view=options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet);if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state();if(petDelivery.changed(value)){stateMessages++;win.webContents.send('state',value);}if(remote&&!remote.isDestroyed()&&controllerDelivery.changed(value))remote.webContents.send('state',value);}
@@ -249,14 +249,15 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    // UI history uses an isolated smoke profile; real signed promotion is covered
    // separately by store/supervisor and packaged launcher integration tests.
    coreStore=new CoreStore(app.getPath('userData'),currentVersion,{electron:process.versions.electron,platform:process.platform,arch:process.arch,engineSha256:'a'.repeat(64),nativeSha256:'b'.repeat(64)});
-   coreStore.noteFailure('9.9.9','permission');remote!.webContents.send('update-status');await new Promise(r=>setTimeout(r,180));
-   if(!await remote!.webContents.executeJavaScript(`document.querySelector('.update-history')?.textContent.includes('입력 권한')`))throw Error('Failure history missing');
-   remote!.destroy();await openRemote();await new Promise(r=>setTimeout(r,180));
-   if(!await remote!.webContents.executeJavaScript(`!!document.querySelector('[data-core-retry]')`))throw Error('Failure history lost after reopen');
-   await remote!.webContents.executeJavaScript(`document.querySelector('[data-core-cancel]').click()`);await new Promise(r=>setTimeout(r,180));
+   const panelWait=(expression:string)=>remote!.webContents.executeJavaScript(`new Promise(resolve=>{const deadline=Date.now()+3000;const check=()=>{if(${expression})resolve(true);else if(Date.now()>deadline)resolve(false);else setTimeout(check,25);};check();})`);
+   coreStore.noteFailure('9.9.9','permission');remote!.webContents.send('update-status');
+   if(!await panelWait(`document.querySelector('.update-history')?.textContent.includes('입력 권한')`))throw Error('Failure history missing');
+   remote!.destroy();await openRemote();
+   if(!await panelWait(`!!document.querySelector('[data-core-retry]')`))throw Error('Failure history lost after reopen: '+await remote!.webContents.executeJavaScript(`document.body.innerText.slice(-800)`));
+   await remote!.webContents.executeJavaScript(`document.querySelector('[data-core-cancel]').click()`);await panelWait(`document.querySelector('.update-history')?.textContent.includes('취소했고')`);
    if(!coreStore.failure()?.cancelled)throw Error('Cancellation not persisted');
-   writeFileSync(coreStore.record,'{}');remote!.webContents.send('update-status');await new Promise(r=>setTimeout(r,180));
-   if(await remote!.webContents.executeJavaScript(`!!document.querySelector('.update-history')`))throw Error('Successful update left failure history visible');
+   writeFileSync(coreStore.record,'{}');remote!.webContents.send('update-status');
+   if(!await panelWait(`!document.querySelector('.update-history')`))throw Error('Successful update left failure history visible');
    coreStore=undefined;const updateHistoryReport={reopened:true,cancelled:true,clearedAfterConfirmation:true};
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
    await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));

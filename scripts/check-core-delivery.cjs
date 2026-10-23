@@ -1,0 +1,12 @@
+const fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process'),assert=require('node:assert/strict'),{fileHash}=require('../dist-electron/core-store');
+const {checkHelper,parseArchitectures}=require('./check-mac-helper.cjs');
+if(process.platform!=='darwin')throw Error('macOS delivery verification requires macOS');
+const root=path.resolve(process.argv[2]),arch=process.arch,version=require('../package.json').version,prefix=`Keyboard-Cat-${version}`;
+execFileSync('/usr/bin/hdiutil',['verify',path.join(root,`${prefix}-mac-${arch}.dmg`)],{stdio:'inherit'});
+const zip=path.join(root,`${prefix}-mac-${arch}.zip`);execFileSync('/usr/bin/unzip',['-t',zip],{stdio:'ignore'});
+const out=path.resolve('work/delivered-'+arch);fs.mkdirSync(out,{recursive:true});execFileSync('/usr/bin/ditto',['-x','-k',zip,out]);
+const app=path.join(out,'Keyboard Cat.app'),contents=path.join(app,'Contents');execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',app],{stdio:'inherit'});execFileSync('/usr/bin/plutil',['-lint',path.join(contents,'Info.plist')],{stdio:'inherit'});
+checkHelper(path.join(contents,'MacOS/KeyCounter-mac'));
+const architectures=parseArchitectures(execFileSync('xcrun',['lipo',path.join(contents,'MacOS/Keyboard Cat'),'-archs'],{encoding:'utf8'}));assert(architectures.includes(arch==='x64'?'x86_64':arch));
+const m=JSON.parse(fs.readFileSync(path.join(root,`${prefix}-core-darwin-${arch}.unsigned.json`),'utf8')),archive=path.join(root,`${prefix}-core-darwin-${arch}.asar`);assert.equal(m.version,version);assert.equal(m.runtime.platform,'darwin');assert.equal(m.runtime.arch,arch);assert.equal(m.sha256,fileHash(archive));assert.equal(m.size,fs.statSync(archive).size);assert.equal(m.sha256,fileHash(path.join(contents,'Resources/app.asar')));
+fs.mkdirSync('work/delivery-reports',{recursive:true});fs.writeFileSync(`work/delivery-reports/darwin-${arch}.json`,JSON.stringify({version,arch,dmgVerified:true,zipVerified:true,deliveredBundleSignatureVerified:true,helperSelfTest:true,archiveMatchesDeliveredApp:true,physicalTyping:'not tested'},null,2));console.log('MAC_DELIVERY_OK '+arch);

@@ -1,0 +1,41 @@
+name: Verify v2 delivered Mac files
+on:
+  push:
+    branches: ['codex/launcher-2.1.1']
+    paths: ['.github/workflows/verify-delivery.yml', 'scripts/check-core-delivery.cjs']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  delivery:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install tsc -p tsconfig.electron.json
+      - uses: actions/download-artifact@v5
+        with:
+          name: launcher-build-darwin-${{ matrix.arch }}
+          path: work/delivered-build
+          run-id: 39933767218
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: node scripts/check-core-delivery.cjs work/delivered-build
+      - uses: actions/upload-artifact@v6
+        with:
+          name: delivery-report-darwin-${{ matrix.arch }}
+          path: work/delivery-reports/
+          if-no-files-found: error

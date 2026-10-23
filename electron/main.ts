@@ -12,6 +12,7 @@ import {animationState} from './view-state';
 import {StateDelivery} from './state-delivery';
 import {InstalledUpdater,isUpdaterResource} from './installed-updater';
 import {UpdateRecovery} from './update-recovery';
+import {ManagedUpdateFiles} from './managed-update-files';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
@@ -27,8 +28,9 @@ let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke
 let diagnosticReport='';
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
+let managedUpdateFiles:ManagedUpdateFiles|undefined;
 const buildLabel='앵무새 5종 · 표시 처리 최적화 · 기존 모션 유지';
-const updates=new UpdateChecker(app.getVersion(),process.platform,process.arch,!!process.env.PORTABLE_EXECUTABLE_FILE,undefined,url=>shell.openExternal(url));
+const updates=new UpdateChecker(app.getVersion(),process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -92,19 +94,30 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   localSession.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));localSession.setPermissionCheckHandler(()=>false);localSession.setDevicePermissionHandler(()=>false);localSession.on('will-download',(e)=>e.preventDefault());
   localSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isAppResource(d.url,distRoot)}));
   const trusted=(e:Electron.IpcMainEvent|Electron.IpcMainInvokeEvent)=>{const sender=e.sender;return !quitting&&!win.isDestroyed()&&!sender.isDestroyed()&&(sender===win.webContents||(!!remote&&!remote.isDestroyed()&&sender===remote.webContents))&&isTrustedFrame(sender,e.senderFrame,indexFile);};
-  if(!smoke&&app.isPackaged&&process.platform==='win32'&&!process.env.PORTABLE_EXECUTABLE_FILE&&existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe'))){
+  if(!smoke&&app.isPackaged&&process.platform==='win32'&&(process.env.PORTABLE_EXECUTABLE_FILE||existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe')))){
    try{
    const {NsisUpdater}=require('electron-updater') as typeof import('electron-updater');
-   const updater=new NsisUpdater(),updateSession=updater.netSession;
+   managedUpdateFiles=new ManagedUpdateFiles(app.getPath('userData'),process.env.LOCALAPPDATA||path.join(app.getPath('home'),'AppData','Local'));
+   const updater=new NsisUpdater(undefined,{
+    version:app.getVersion(),name:app.getName(),isPackaged:app.isPackaged,
+    appUpdateConfigPath:path.join(process.resourcesPath,'app-update.yml'),userDataPath:app.getPath('userData'),baseCachePath:managedUpdateFiles.root,
+    whenReady:async()=>{await app.whenReady();},quit:()=>app.quit(),relaunch:()=>app.relaunch(),onQuit:handler=>{app.once('quit',(_event,code)=>handler(code));}
+   }),updateSession=updater.netSession;
+   // NSIS may inherit the old portable launcher's environment during migration.
+   // An actual installed bundle always wins over that stale environment variable.
+   const portable=existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall Keyboard Cat.exe'))?undefined:process.env.PORTABLE_EXECUTABLE_FILE;
+   const installDirectory=portable?managedUpdateFiles.installDirectory:path.dirname(app.getPath('exe'));
+   updater.installDirectory=installDirectory;
    updateSession.setPermissionRequestHandler((_c,_p,cb)=>cb(false));updateSession.setPermissionCheckHandler(()=>false);
    updateSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:!isUpdaterResource(d.url)}));
    updateRecovery=new UpdateRecovery(app.getPath('userData'));
    installedUpdater=new InstalledUpdater(updater,app.getVersion(),()=>{if(installQuitArmed){installQuitArmed=false;quitting=false;}},async target=>{
     if(quitting)throw Error('Application is quitting');
-    await updateRecovery!.prepare(path.dirname(app.getPath('exe')),app.getVersion(),target);
+    if(portable){await managedUpdateFiles!.checkInstallDirectory();await managedUpdateFiles!.rememberPortable(portable,app.getVersion(),target);}
+    else await updateRecovery!.prepare(path.dirname(app.getPath('exe')),app.getVersion(),target);
     if(quitting)throw Error('Application is quitting');
-   });
-   }catch{installedUpdater=undefined;updateRecovery=undefined;}
+   },(files,target)=>managedUpdateFiles!.rememberDownload(files,target,installDirectory));
+   }catch{installedUpdater=undefined;updateRecovery=undefined;managedUpdateFiles=undefined;}
   }
   ipcMain.handle('snapshot',e=>{if(trusted(e))return state();});
   const quitForUpdate=(version:string,asset:string)=>{const target=updates.selectedInstaller();if(!target||target.version!==version||target.asset!==asset)throw Error('Selected update changed');save();installQuitArmed=true;quitting=true;};
@@ -134,7 +147,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   let previousWindowX=win.getPosition()[0];win.on('moved',()=>{const x=win.getPosition()[0];if(moving){direction=facingForDelta(direction,x-previousWindowX);send();if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}previousWindowX=x;});win.showInactive();startInput();
   powerMonitor.on('suspend',()=>{suspended=true;finishCarry();stopInput();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{suspended=false;lastHit=Date.now();startInput(false);});
   const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&now-lastHit<30000){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+direction*3;if(nx<a.x||nx+320>a.x+a.width){direction*=-1;nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}send();},100);
-  if(updateRecovery&&existsSync(updateRecovery.root)){
+  if((updateRecovery&&existsSync(updateRecovery.root))||(managedUpdateFiles&&existsSync(managedUpdateFiles.record))){
    let attempts=0,checking=false;
    startupTimer=setInterval(async()=>{
     if(checking)return;
@@ -144,8 +157,11 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     try{
      const healthy=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img,.carry-image');return document.readyState==='complete'&&!!window.cat&&!!img&&img.complete&&img.naturalWidth>0;})()`);
      if(healthy&&!quitting&&!win.isDestroyed()){
-      const result=await updateRecovery!.confirm(app.getVersion(),path.dirname(app.getPath('exe')));
-      installedUpdater?.startupConfirmed(result);if(startupTimer)clearInterval(startupTimer);startupTimer=undefined;
+      const directory=path.dirname(app.getPath('exe'));
+      const backup=updateRecovery?await updateRecovery.confirm(app.getVersion(),directory):{removed:0,retained:0};
+      const files=managedUpdateFiles?await managedUpdateFiles.confirm(app.getVersion(),directory):{removed:0,retained:0};
+      const result={removed:backup.removed+files.removed,retained:backup.retained+files.retained};
+      installedUpdater?.startupConfirmed(result);if(!result.retained){if(startupTimer)clearInterval(startupTimer);startupTimer=undefined;}
      }
     }catch{/* A failed startup keeps the previous copy. */}finally{checking=false;}
    },1000);

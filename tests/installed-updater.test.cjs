@@ -27,7 +27,7 @@ test('installed updates are manual, coalesced, validated and require explicit in
  assert.deepEqual(await Promise.all([updater.download('1.3.17',asset),updater.download('1.3.17',asset)]),[true,true]);
  assert.equal(client.checks,1);assert.equal(client.downloads,1);assert.equal(client.installs,0);assert.equal(updater.state.phase,'ready');
  assert.equal(await updater.download('1.3.18',asset),false);
- assert.equal(await updater.install(()=>armed++),true);assert.equal(armed,1);assert.deepEqual(client.args,[false,true]);assert.equal(await updater.install(()=>armed++),false);
+ assert.equal(await updater.install(()=>armed++),true);assert.equal(armed,1);assert.deepEqual(client.args,[true,true]);assert.equal(await updater.install(()=>armed++),false);
 });
 test('metadata mismatch, download failure and install failure never mark a failed update ready',async()=>{
  for(const mode of ['metadata','download','install']){
@@ -65,4 +65,9 @@ test('one update request downloads, backs up, quits and starts installation in o
  assert.deepEqual(order,['download verified','backup verified','quit','installer']);
  const bad=new Client();bad.info={...metadata(),version:'9.0.0'};let prepared=false;
  const denied=new InstalledUpdater(bad,'1.3.16',()=>{},async()=>{prepared=true;});assert.equal(await denied.update('1.3.17',asset,()=>{throw Error('should not quit');}),false);assert.equal(prepared,false);assert.equal(bad.installs,0);
+});
+
+test('verified downloaded files are recorded before installation, and record failure blocks quit',async()=>{
+ const client=new Client(),events=[];const updater=new InstalledUpdater(client,'1.3.16',()=>{},async()=>events.push('prepare'),async(files,version)=>{assert.deepEqual(files,['verified-cache/setup.exe']);assert.equal(version,'1.3.17');events.push('record');});await updater.update('1.3.17',asset,()=>events.push('quit'));assert.deepEqual(events,['record','prepare','quit']);
+ const failed=new Client(),blocked=new InstalledUpdater(failed,'1.3.16',()=>{},async()=>{throw Error('must not prepare');},async()=>{throw Error('record cannot be saved');});assert.equal(await blocked.update('1.3.17',asset,()=>{throw Error('must not quit');}),false);assert.equal(failed.installs,0);assert.equal(blocked.state.phase,'error');
 });

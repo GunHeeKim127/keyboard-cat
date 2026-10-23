@@ -35,12 +35,14 @@ export class CoreStore{
   }catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return {};throw e;}
  }
  private write(j:Journal){safeAncestors(this.record);fs.mkdirSync(this.root,{recursive:true});const tmp=this.record+'.'+randomUUID()+'.next';try{fs.writeFileSync(tmp,JSON.stringify(j),{flag:'wx'});fs.renameSync(tmp,this.record);}finally{try{fs.unlinkSync(tmp);}catch{}}}
- verify(m:CoreManifest){if(!this.authentic(m)||!sameCoreRuntime(m.runtime,this.runtime))throw Error('Incompatible or unsigned core');const file=this.file(m);safeAncestors(file);const s=fs.lstatSync(file);if(!s.isFile()||s.size!==m.size||fileHash(file)!==m.sha256)throw Error('Damaged core');return file;}
+ private verifyPhysical(m:CoreManifest){if(!this.authentic(m))throw Error('Unsigned core');const file=this.file(m);safeAncestors(file);const s=fs.lstatSync(file);if(!s.isFile()||s.size!==m.size||fileHash(file)!==m.sha256)throw Error('Damaged core');return file;}
+ verify(m:CoreManifest){if(!sameCoreRuntime(m.runtime,this.runtime))throw Error('Incompatible core');return this.verifyPhysical(m);}
  workerCandidate(hash:string){const j=this.read();if(!j.attempted||j.pending?.sha256!==hash||!newerVersion(j.pending.version,this.active()?.version??this.baseVersion))throw Error('Unexpected candidate');this.verify(j.pending);return j.pending;}
  active(){const j=this.read(),m=j.active;if(m&&newerVersion(m.version,this.baseVersion)){this.verify(m);return m;}return undefined;}
  stage(m:CoreManifest){this.verify(m);const j=this.read(),current=this.active()?.version??this.baseVersion;if(!newerVersion(m.version,current))throw Error('Core downgrade');if(j.pending)throw Error('Core switch already pending');this.write({...j,pending:m,attempted:false});}
  candidate(){const j=this.read();if(!j.pending)return undefined;if(j.attempted){this.reject('interrupted');return undefined;}if(!newerVersion(j.pending.version,this.active()?.version??this.baseVersion)){this.write({active:j.active,failure:j.failure});return undefined;}this.verify(j.pending);this.write({...j,attempted:true});return j.pending;}
  confirm(m:CoreManifest){const j=this.read();if(!j.pending||j.pending.sha256!==m.sha256||j.pending.version!==m.version||!j.attempted)throw Error('Unexpected core confirmation');this.verify(m);this.write({active:m});if(j.active&&this.file(j.active)!==this.file(m))this.remove(j.active);if(j.failure?.manifest&&j.failure.manifest.sha256!==m.sha256)this.remove(j.failure.manifest);}
+ confirmBundled(){const j=this.read();if(j.pending||j.active&&newerVersion(j.active.version,this.baseVersion))return false;const clearFailure=j.failure&&(j.failure.version===this.baseVersion||newerVersion(this.baseVersion,j.failure.version));if(!j.active&&!clearFailure)return false;this.write({failure:clearFailure?undefined:j.failure});if(j.active)this.remove(j.active);if(clearFailure&&j.failure?.manifest)this.remove(j.failure.manifest);return true;}
  reject(code:CoreFailureCode='crash'){const j=this.read();const failure=j.pending?{version:j.pending.version,code,at:new Date().toISOString(),cancelled:false,resolved:false,manifest:j.pending}:j.failure;this.write({active:j.active,failure});}
  failure(){return this.read().failure;}
  noteFailure(target:string,code:CoreFailureCode){if(!version(target))return;const j=this.read();this.write({...j,failure:{version:target,code,at:new Date().toISOString(),cancelled:false,resolved:false}});}
@@ -54,5 +56,5 @@ export class CoreStore{
   }
   if(j.active&&newerVersion(j.active.version,this.baseVersion))try{this.verify(j.active);}catch{this.write({pending:j.pending,attempted:j.attempted,failure:{version:j.active.version,code:'verification',at:new Date().toISOString(),cancelled:false,resolved:false}});}
  }
- private remove(m:CoreManifest){try{this.verify(m);fs.unlinkSync(this.file(m));}catch{/* Retain unknown or changed files. Never scan user folders. */}}
+ private remove(m:CoreManifest){try{this.verifyPhysical(m);fs.unlinkSync(this.file(m));}catch{/* Retain unknown or changed files. Never scan user folders. */}}
 }

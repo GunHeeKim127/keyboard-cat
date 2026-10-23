@@ -68,3 +68,7 @@ test('confirmed successful new version clears persisted failure and cancellation
  const f=fixture(t),a=f.put(f.make());f.store.stage(a);f.store.candidate();f.store.reject('permission');f.store.cancel();assert.equal(f.store.failure().cancelled,true);
  const b=f.put(f.make('2.1.3'));f.store.stage(b);f.store.candidate();assert.equal(f.store.failure().cancelled,true);f.store.confirm(b);assert.equal(f.store.failure(),undefined);const reopened=new CoreStore(f.dir,'2.1.1',f.runtime,f.pub);assert.equal(reopened.failure(),undefined);assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(reopened.record,'utf8'))),['active']);
 });
+test('healthy newer full app clears older failure and retires only signed unchanged old payload',t=>{
+ const f=fixture(t),a=f.put(f.make());f.store.stage(a);f.store.candidate();f.store.confirm(a);f.store.noteFailure('2.1.3','download');f.store.cancel();const next=new CoreStore(f.dir,'3.0.0',{...f.runtime,electron:'43.0.0'},f.pub);assert.equal(next.active(),undefined);assert.equal(next.confirmBundled(),true);assert.equal(next.failure(),undefined);assert(!fs.existsSync(f.store.file(a)));
+ const failed=fixture(t);failed.store.noteFailure('2.1.3','download');assert.equal(failed.store.confirmBundled(),false);assert(failed.store.failure());
+});

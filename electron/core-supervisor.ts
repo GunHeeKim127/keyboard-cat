@@ -20,7 +20,7 @@ export class CoreSupervisor{
    const m=message as {type?:unknown;screen?:unknown;input?:unknown};
    if(m?.type==='core-health'){this.reason=m.input==='permission'?'permission':m.screen!==true?'screen':'input';}
    else if(m?.type==='core-ready'&&m.screen===true&&m.input===true){
-    try{if(this.candidate){this.store.confirm(this.candidate);if(child.connected)child.send({type:'core-confirmed'},()=>{});}this.candidate=undefined;this.clearTimer();}catch{this.failed=true;child.kill();}
+    try{const confirmed=!!this.candidate;if(this.candidate)this.store.confirm(this.candidate);const bundled=confirmed?false:this.store.confirmBundled();if((confirmed||bundled)&&child.connected)child.send({type:'core-confirmed'},()=>{});this.candidate=undefined;this.clearTimer();}catch{this.failed=true;child.kill();}
    }else if(m?.type==='core-switch')this.restart=true;
    else if(m?.type==='core-installer'){this.installer=true;this.stopping=true;this.clearTimer();this.finished();}
   });

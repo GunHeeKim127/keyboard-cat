@@ -5,7 +5,7 @@ const {CoreStore,coreSigningData,fileHash}=require('../dist-electron/core-store'
 const {coreRuntime}=require('../dist-electron/core-runtime');
 async function run(){
  const source=path.resolve(process.argv[2]||'release/win-unpacked'),root=path.resolve('work/launcher-runtime-'+process.platform+'-'+process.arch+'-'+Date.now());fs.mkdirSync(root,{recursive:true});
- const copy=path.join(root,process.platform==='darwin'?'Keyboard Cat.app':'app');fs.cpSync(source,copy,{recursive:true});
+ const copy=path.join(root,process.platform==='darwin'?'Keyboard Cat.app':'app');if(process.platform==='darwin')execFileSync('/usr/bin/ditto',[source,copy]);else fs.cpSync(source,copy,{recursive:true});
  const resources=process.platform==='darwin'?path.join(copy,'Contents/Resources'):path.join(copy,'resources'),exe=process.platform==='darwin'?path.join(copy,'Contents/MacOS/Keyboard Cat'):path.join(copy,'Keyboard Cat.exe'),archive=path.join(resources,'app.asar');
  const unpack=path.join(root,'unpack');asar.extractAll(archive,unpack);const keys=crypto.generateKeyPairSync('ed25519'),pub=keys.publicKey.export({type:'spki',format:'pem'});
  fs.writeFileSync(path.join(unpack,'dist-electron/core-trust.js'),'exports.CORE_PUBLIC_KEY='+JSON.stringify(pub)+';');
@@ -16,9 +16,10 @@ async function run(){
  fs.writeFileSync(path.join(unpack,'dist-electron/main.js'),worker);fs.writeFileSync(path.join(unpack,'dist/launcher-qa.html'),'<!doctype html><meta charset="utf-8"><img src="./sprites/IDLE-0.png">');
  fs.unlinkSync(archive);await asar.createPackage(unpack,archive);
  if(process.platform==='darwin'){
-  execFileSync('/usr/bin/codesign',['--force','--deep','--sign','-',copy],{stdio:'inherit'});
-  const hostFile=path.join(resources,'core-host.json'),host=JSON.parse(fs.readFileSync(hostFile,'utf8'));host.helperBinarySha256=fileHash(path.join(resources,'../MacOS/KeyCounter-mac'));fs.writeFileSync(hostFile,JSON.stringify(host));
+  // Preserve all existing nested framework/helper signatures and relative links.
+  // Only the QA archive/outer resource seal changed; this is local ad-hoc signing.
   execFileSync('/usr/bin/codesign',['--force','--sign','-',copy],{stdio:'inherit'});
+  execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',copy],{stdio:'inherit'});
  }
  const runtime=coreRuntime(exe,resources,process.platform,process.arch,require('electron/package.json').version),store=new CoreStore(profile,'2.1.1',runtime,pub);store.prepare();
  pkg.version='2.1.2';fs.writeFileSync(path.join(unpack,'package.json'),JSON.stringify(pkg));const candidate=path.join(root,'candidate.asar');await asar.createPackage(unpack,candidate);

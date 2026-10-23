@@ -318,11 +318,12 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    await win.webContents.executeJavaScript(`window.cat.carry(false)`);await new Promise(r=>setTimeout(r,500));if(carried||state().landing)throw Error('Carry release failed');
    for(const size of [.75,1,1.3]){apply({size});startCarry();await new Promise(r=>setTimeout(r,150));followCarry();finishCarry();if(carried||carryTimer)throw Error('Carry timer leaked');}
    apply({effects:true});landingUntil=0;
+   clearInterval(timer); // Keep explicit poses fixed while their textures load.
    const extraAnimations=[];
    for(const [testEffect,age,action,atlas] of [[10,100,'JUMP','JUMP'],[10,700,'FALL','FALL'],[10,1050,'LAND','LAND'],[20,100,'CLIMB_UP','CLIMB'],[20,1000,'CLIMB_DOWN','CLIMB'],[20,1700,'LAND','LAND']]){
-    effect=Number(testEffect);effectAt=Date.now()-Number(age);send();await new Promise(r=>setTimeout(r,80));
-    const frame=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return {src:img?.getAttribute('src'),width:img?.naturalWidth,direction:img?getComputedStyle(img).animationDirection:''};})()`);
-    if(state().action!==action||!frame.src?.endsWith(String(atlas)+'-atlas.png')||!frame.width||(action==='CLIMB_DOWN'&&frame.direction!=='reverse'))throw Error('Extra animation failed: '+action);
+    effect=Number(testEffect);effectAt=Date.now()-Number(age);const selectedAction=state().action;send();
+    const frame=await win.webContents.executeJavaScript(`new Promise(resolve=>{const deadline=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img'),src=img?.getAttribute('src'),direction=img?getComputedStyle(img).animationDirection:'';if((img?.complete&&img.naturalWidth>0&&src.endsWith(${JSON.stringify(String(atlas)+'-atlas.png')})&&(${JSON.stringify(action)}!=='CLIMB_DOWN'||direction==='reverse'))||Date.now()>deadline)resolve({src,width:img?.naturalWidth,direction});else setTimeout(check,25);};check();})`);
+    if(selectedAction!==action||!frame.src?.endsWith(String(atlas)+'-atlas.png')||!frame.width||(action==='CLIMB_DOWN'&&frame.direction!=='reverse'))throw Error('Extra animation failed: '+action);
     if(action.startsWith('CLIMB_')){const originalLadder=await win.webContents.executeJavaScript(`({extra:!!document.querySelector('.ladder'),movement:getComputedStyle(document.querySelector('.sprite')).animationName})`);if(originalLadder.extra||originalLadder.movement!=='none')throw Error('Original cat ladder was changed');}
     extraAnimations.push({action,...frame});
     if(process.argv.includes('--capture-smoke')){const dir=path.join(app.getAppPath(),'work');mkdirSync(dir,{recursive:true});writeFileSync(path.join(dir,String(action)+'.png'),(await win.webContents.capturePage()).toPNG());}

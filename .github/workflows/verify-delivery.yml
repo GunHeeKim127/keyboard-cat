@@ -4,6 +4,11 @@ on:
     branches: ['codex/launcher-2.1.1']
     paths: ['.github/workflows/verify-delivery.yml', 'scripts/check-core-delivery.cjs']
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Verified build run containing the delivered Mac files'
+        type: string
+        required: true
 permissions:
   contents: read
   actions: read
@@ -31,7 +36,7 @@ jobs:
         with:
           name: launcher-build-darwin-${{ matrix.arch }}
           path: work/delivered-build
-          run-id: 39966298222
+          run-id: ${{ inputs.run_id || '39966298222' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - run: node scripts/check-core-delivery.cjs work/delivered-build
       - uses: actions/upload-artifact@v6

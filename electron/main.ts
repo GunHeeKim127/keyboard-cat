@@ -40,7 +40,7 @@ let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
 let installerGate:InstallerGate|undefined;
-const buildLabel='런처·기능 묶음 분리 업데이트 · 기존 모션 유지';
+const buildLabel='이미지 전환 깜빡임 완화 · 기존 모션 유지';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
@@ -271,6 +271,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    if(!await panelWait(`!document.querySelector('.update-history')`))throw Error('Successful update left failure history visible');
    coreStore=undefined;const updateHistoryReport={reopened:true,cancelled:true,clearedAfterConfirmation:true};
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
+   await win.webContents.executeJavaScript(`(()=>{const r=window.__spritePaint={active:true,paints:0,blank:0,incomplete:0};const check=()=>{if(!r.active)return;const images=[...document.querySelectorAll('.sprite img')].filter(img=>getComputedStyle(img).visibility!=='hidden');r.paints++;if(!images.length)r.blank++;else if(images.some(img=>!img.complete||!img.naturalWidth))r.incomplete++;requestAnimationFrame(check);};requestAnimationFrame(check);})()`);
    await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));
    const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(currentVersion)})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+currentVersion)};})()`);
    if(!diagnosticsReady)throw Error('Input diagnostics or displayed app version missing');
@@ -442,10 +443,16 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(!carried||!await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`))throw Error('Parrot carry failed');finishCarry();
     parrotReport.push({breed,actions:10,mouseSelection:true,persisted:true,footCarry:true});
    }
+   // Simulate slow decode and rapid replacement without touching any production assets.
+   await win.webContents.executeJavaScript(`(()=>{const decode=HTMLImageElement.prototype.decode;window.__restoreSpriteDecode=()=>{HTMLImageElement.prototype.decode=decode;};HTMLImageElement.prototype.decode=function(){return decode.call(this).then(()=>new Promise(resolve=>setTimeout(resolve,100)));};})()`);
+   for(let i=0;i<24;i++){const action=['WALK','FLY','SLEEP','CLIMB_DOWN'][i%4];win.webContents.send('state',{...state(),action,carried:false,animate:true});await new Promise(r=>setTimeout(r,40));}
+   await win.webContents.executeJavaScript(`window.__restoreSpriteDecode()`);await new Promise(r=>setTimeout(r,250));
+   const paintReport=await win.webContents.executeJavaScript(`(()=>{const r=window.__spritePaint;r.active=false;return {paints:r.paints,blank:r.blank,incomplete:r.incomplete,delayedDecodeTransitions:24};})()`);
+   if(paintReport.paints<20||paintReport.blank||paintReport.incomplete)throw Error('Sprite paint continuity failed: '+JSON.stringify(paintReport));
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,aspectReport,mouseSelection:true}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,paintReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,aspectReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

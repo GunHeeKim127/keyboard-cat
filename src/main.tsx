@@ -2,6 +2,7 @@ import {ParrotBreed,parrotBreeds,parrotNames,parrotTraits,parrotDisplays} from '
 import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './style.css';
+import {StableSpriteImage} from './StableSpriteImage';
 import type {NameDisplay} from '../electron/options';
 import type {UpdateInfo} from '../electron/updates';
 import {DogBreed,PetKind,CatBreed,catBreeds,catBreedNames,catBreedTraits,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
@@ -16,20 +17,22 @@ function loadFrame(url:string){
  if(!loaded){const img=new Image();img.src=url;loaded=img.decode().then(()=>img);frameTextures.set(url,loaded);loaded.catch(()=>frameTextures.delete(url));}
  return loaded;
 }
-const FrameSprite=React.memo(function FrameSprite({src,frames,duration,animate,reverse=false}:{src:string;frames:number;duration:number;animate:boolean;reverse?:boolean}){
- const first=reverse?frames-1:0,[frame,setFrame]=useState(first);
+const FrameSprite=React.memo(function FrameSprite({src,frames,duration,animate,reverse=false,restart=0,atlas=false,carry=false}:{src:string;frames:number;duration:number;animate:boolean;reverse?:boolean;restart?:number;atlas?:boolean;carry?:boolean}){
+ const first=reverse?frames-1:0,[cursor,setFrame]=useState({src,frame:first});
+ const frame=cursor.src===src&&cursor.frame<frames?cursor.frame:first;
  useEffect(()=>{
   let disposed=false,timer:ReturnType<typeof setInterval>|undefined;
-  setFrame(reverse?frames-1:0);
+  const initial=reverse?frames-1:0;
+  setFrame(previous=>previous.src===src&&previous.frame===initial?previous:{src,frame:initial});
   // A stationary pose needs no preload work or timer.
-  if(!animate||frames<=1)return;
+  if(atlas||!animate||frames<=1)return;
   const images=Array.from({length:frames},(_,i)=>loadFrame(src.replace('-atlas.png','-frame-'+i+'.png')));
   Promise.all(images).then(()=>{
-   if(!disposed&&animate&&frames>1)timer=setInterval(()=>setFrame(f=>(f+(reverse?frames-1:1))%frames),duration*1000/frames);
+   if(!disposed&&animate&&frames>1)timer=setInterval(()=>setFrame(f=>({src,frame:(f.frame+(reverse?frames-1:1))%frames})),duration*1000/frames);
   },()=>{/* Keep the first pose if an asset cannot load. */});
   return()=>{disposed=true;if(timer!==undefined)clearInterval(timer);};
- },[src,frames,duration,animate,reverse]);
- return <img src={src.replace('-atlas.png','-frame-'+frame+'.png')} draggable={false} data-frame={frame} data-frame-count={frames} data-cycle-duration={duration} data-playing={animate&&frames>1} data-reverse={reverse} style={{width:'100%',animation:'none'}}/>;
+ },[src,frames,duration,animate,reverse,restart,atlas]);
+ return <StableSpriteImage src={atlas||carry?src:src.replace('-atlas.png','-frame-'+frame+'.png')} restart={atlas?reverse+'-'+restart:0} className={carry?'carry-image':undefined} draggable={false} data-frame={frame} data-frame-count={frames} data-cycle-duration={duration} data-playing={animate&&frames>1} data-reverse={reverse} style={{width:atlas?`${frames*100}%`:'100%',animation:atlas&&frames>1&&animate?`frames ${duration}s steps(${frames}) infinite ${reverse?'reverse':'normal'}`:'none'}}/>;
 });
 function AvatarName({name,display}:{name:string;display:NameDisplay}){
  const [draft,setDraft]=useState(name);
@@ -88,7 +91,7 @@ type PetAvatarProps=Options & Pick<State,'action'|'animate'|'facing'|'carried'|'
 // IPC clones options each time. Scalar props let memo skip unchanged visuals.
 const PetAvatar=React.memo(function PetAvatar(props:PetAvatarProps){
  const s=props,o=props,[hovered,setHovered]=useState(false);
- const isolated=o.pet!=='cat'||o.catBreed!=='original',visualAction=s.carried&&isolated?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction,o.catBreed,o.parrotBreed),n=visual.frames,duration=spriteDuration(o.pet,visualAction,n,o.fps,o.catBreed,o.parrotBreed),spriteKey=o.pet+'-'+o.dogBreed+'-'+o.catBreed+'-'+visualAction+'-'+s.effectAt+(o.pet==='parrot'?'-'+o.parrotBreed:'');
+ const isolated=o.pet!=='cat'||o.catBreed!=='original',visualAction=s.carried&&isolated?'CARRY':s.action,visual=spriteFor(o.pet,o.dogBreed,visualAction,o.catBreed,o.parrotBreed),n=visual.frames,duration=spriteDuration(o.pet,visualAction,n,o.fps,o.catBreed,o.parrotBreed);
  return <div className={`pet ${s.carried?'carry':s.landing?'landing':s.animate?s.action.toLowerCase():''} ${o.grabEnabled?'grabbable':''}`} style={{width:112*o.size,height:112*o.size,'--facing':s.facing,'--drop-y':'-6px','--walk-cycle':duration+'s','--walk-sway-x':(.8*o.size)+'px','--walk-sway-y':(-.5*o.size)+'px'} as React.CSSProperties}
    onMouseEnter={()=>{setHovered(true);window.cat.hover(true);}} onMouseLeave={()=>{setHovered(false);window.cat.hover(false);}}
    onPointerDown={e=>{if(e.button===0&&o.grabEnabled&&!s.moving){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);window.cat.carry(true);}}}
@@ -96,7 +99,7 @@ const PetAvatar=React.memo(function PetAvatar(props:PetAvatarProps){
    onPointerCancel={()=>window.cat.carry(false)} onLostPointerCapture={()=>window.cat.carry(false)}>
    {o.pet==='cat'&&o.catBreed!=='original'&&!s.carried&&s.animate&&s.action.startsWith('CLIMB_')&&<div className="ladder" aria-label="사다리" data-direction={s.action==='CLIMB_DOWN'?'down':'up'} style={{left:s.facing<0?'10%':'66%'}}><i/><i/><i/><i/><i/></div>}
    {o.pet==='parrot'&&!s.carried&&s.action.startsWith('CLIMB_')&&<div className="parrot-twig" aria-label="앵무새가 오르내리는 가지" style={{left:s.facing<0?'27%':'68%'}}/>}
-   <div className="facing" style={{transform:`scaleX(${s.facing})`}}>{s.carried&&!isolated?<img className="carry-image" src="./sprites/carry.png" draggable={false}/>:<div className="sprite">{isolated?<FrameSprite key={spriteKey} src={visual.src} frames={n} duration={duration} animate={s.carried?!s.paused:s.animate} reverse={s.action==='CLIMB_DOWN'}/>:<img key={spriteKey} src={visual.src} draggable={false} style={{width:`${n*100}%`,animation:(n>1)&&s.animate?`frames ${duration}s steps(${n}) infinite ${s.action==='CLIMB_DOWN'?'reverse':'normal'}`:'none'}}/>}</div>}</div>
+   <div className="facing" style={{transform:`scaleX(${s.facing})`}}><div className="sprite"><FrameSprite src={s.carried&&!isolated?'./sprites/carry.png':visual.src} frames={s.carried&&!isolated?1:n} duration={duration} animate={s.carried?!s.paused:s.animate} reverse={s.action==='CLIMB_DOWN'} restart={s.effectAt} atlas={!isolated&&!s.carried} carry={!isolated&&s.carried}/></div></div>
    {(o.nameDisplay==='always'||(o.nameDisplay==='hover'&&hovered))&&<div className="avatar-name" role={o.nameDisplay==='hover'?'tooltip':undefined}>{o.avatarName}</div>}
   </div>;
 });

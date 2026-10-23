@@ -13,7 +13,8 @@ export const StableSpriteImage=React.memo(function StableSpriteImage(props:Props
    image.className=props.className??'';image.draggable=props.draggable??false;image.alt='';
    image.removeAttribute('style');Object.assign(image.style,props.style);
    for(const name of ['data-frame','data-frame-count','data-cycle-duration','data-playing','data-reverse'] as const)image.setAttribute(name,String(props[name]));
-   if(host.current.firstChild!==image||previous.current?.restart!==props.restart)host.current.replaceChildren(image);
+   if(host.current.firstChild!==image)host.current.replaceChildren(image);
+   else if(previous.current?.restart!==props.restart)for(const animation of image.getAnimations())animation.currentTime=0;
    previous.current={src:props.src,restart:props.restart};
   },()=>{/* Keep the last decoded frame when a replacement fails. */});
   return()=>{active=false;};

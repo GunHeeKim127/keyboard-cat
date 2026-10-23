@@ -412,15 +412,18 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    if(String(options.pet)!=='cat')throw Error('Cat restore failed');
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=dog]').click()`);await new Promise(r=>setTimeout(r,80));if(String(options.pet)!=='dog'||options.dogBreed!=='husky')throw Error('Mouse selection lost last breed');
    apply({pet:'cat'});
+   // Explicit pose tests must not race the real idle/walk/sleep timer. That
+   // timer was exercised above; keep each requested pose until its image loads.
+   clearInterval(timer);lastHit=Date.now();
    const parrotReport=[];
    for(const breed of parrotBreeds){
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=parrot]').click()`);await new Promise(r=>setTimeout(r,80));
     await remote!.webContents.executeJavaScript(`(()=>{const select=document.querySelector('#parrot-breed');select.value=${JSON.stringify(breed)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,80));
     if(String(options.pet)!=='parrot'||options.parrotBreed!==breed||JSON.parse(readFileSync(settingsPath(),'utf8')).options.parrotBreed!==breed)throw Error('Parrot selection/persistence failed');landingUntil=0;
     for(const action of ['IDLE','WALK','CHIRP','CLIMB_UP','CLIMB_DOWN','FLY','DISPLAY','SLEEP','CARRY','LAND']){
-     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});await new Promise(r=>setTimeout(r,150));
-     const bird=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img');return {ready:img?.complete&&img.naturalWidth===100&&img.naturalHeight===110&&img.getAttribute('src').startsWith('./sprites/parrot-'+${JSON.stringify(breed)}+'-'),reverse:img?.dataset.reverse,twig:!!document.querySelector('.parrot-twig')};})()`);
-     if(!bird.ready)throw Error('Parrot action failed: '+breed+' '+action);
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});
+     const bird=await win.webContents.executeJavaScript(`new Promise(resolve=>{const deadline=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img'),ready=!!img?.complete&&img.naturalWidth===100&&img.naturalHeight===110&&img.getAttribute('src').startsWith('./sprites/parrot-'+${JSON.stringify(breed)}+'-')&&document.querySelector('.pet')?.classList.contains(${JSON.stringify(action.toLowerCase())});if(ready||Date.now()>deadline)resolve({ready,reverse:img?.dataset.reverse,twig:!!document.querySelector('.parrot-twig'),src:img?.getAttribute('src')});else setTimeout(check,25);};check();})`);
+     if(!bird.ready)throw Error('Parrot action failed: '+breed+' '+action+' '+JSON.stringify(bird));
      if(action.startsWith('CLIMB_')&&(!bird.twig||bird.reverse!==String(action==='CLIMB_DOWN')))throw Error('Parrot branch direction failed');
      if(!action.startsWith('CLIMB_')&&bird.twig)throw Error('Parrot branch remained');
     }

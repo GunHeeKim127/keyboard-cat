@@ -20,3 +20,11 @@ Original generated files were copied, not moved, from the tool's generated-image
 ## Sleep-only corrections, 1.3.20
 
 The three `*-sleep-v2-sheet.png` files were edited with built-in imagegen from 2x2 contact sheets of the original full-resolution sleep silhouettes. Only macaw indices 2/3, parrotlet index 2, and lovebird index 3 are consumed. Good original poses remain byte-identical at runtime. Prompts required closed eyes, the same sleeping side orientation and colours, two visible feet, left-pointing tails, consistent rounded body and transparent gutters. The macaw prompt corrected flipped tails; parrotlet corrected a front-on ball with missing feet; lovebird corrected the raised awake-looking head. The original 40-pose sheets are untouched. Corrected whole poses are scaled to the existing good sleep pose height and baseline; speed and animation code are unchanged.
+
+## Walk-only corrections, 1.3.21
+
+Five `*-walk-v2-sheet.png` sources were edited with built-in imagegen on 2026-10-23. Only WALK consumes them. Original forty-pose sources and sleep overrides are untouched. Fifteen sheet candidates were generated across three review rounds; long stretched strides in early candidates were rejected. Final source files contain eight complete bird paintings, not assembled limb parts.
+
+Final prompt set: preserve the original species identity, feather palette, cute proportions and illustration style; 4 columns by 2 rows, facing right, transparent gutters; short two-legged ground walk with alternating contact/closing/passing/opening poses, feet passing beneath the belly and a low curled-toe swing; small toes/short tarsi, stable body/head/tail, no high knees, giant feet, hopping, floating, wingflapping, shadows or text. Cockatoo used its original idle pose as identity reference. Other four used their own idle pose plus the corrected cockatoo sheet for gait only, explicitly excluding cockatoo appearance.
+
+Complete alpha silhouettes are packed at a single common scale per species, capped by both previous WALK width and height. Feet align to the existing floor. Full source sheets remain available in this folder.

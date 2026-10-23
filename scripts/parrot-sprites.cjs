@@ -13,7 +13,8 @@ async function build({force=false}={}){
  const pipeline=digest(Buffer.concat(['scripts/parrot-sprites.cjs','scripts/sprite-components.cjs','scripts/write-asset.cjs','scripts/asset-cache.cjs'].map(file=>Buffer.from(file+'\0'+fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n')+'\0')).concat(Buffer.from(sharp.versions.sharp))));
  let rebuilt=0,cached=0;
  for(const breed of breeds){
-  const files=outputFiles(breed),key=digest(Buffer.concat([Buffer.from(pipeline),fs.readFileSync(`assets/parrots/${breed}-sheet.png`),...(sleepFixes[breed]?[fs.readFileSync(sleepFixes[breed].file)]:[])]));
+  const walkFile=`assets/parrots/${breed}-walk-v2-sheet.png`;
+  const files=outputFiles(breed),key=digest(Buffer.concat([Buffer.from(pipeline),fs.readFileSync(`assets/parrots/${breed}-sheet.png`),fs.readFileSync(walkFile),...(sleepFixes[breed]?[fs.readFileSync(sleepFixes[breed].file)]:[])]));
   if(!force&&cacheMatches(cache[breed],key,files)){cached++;continue;}
   rebuilt++;
   const {data,info}=await sharp(`assets/parrots/${breed}-sheet.png`).ensureAlpha().raw().toBuffer({resolveWithObject:true});
@@ -24,6 +25,21 @@ async function build({force=false}={}){
    const input=await sharp(p.rgba,{raw:{width:p.width,height:p.height,channels:4}}).resize(width,height).png().toBuffer();
    return sharp({create:{width:100,height:110,channels:4,background:'#00000000'}}).composite([{input,left:Math.round((100-width)/2),top:103-height}]).png().toBuffer();
   }));
+  // Complete painted bird poses: no separate legs, rigging or runtime deformation.
+  // Use one scale for the entire stride so lifting a foot cannot resize the body.
+  {
+   const {data:rgba,info:meta}=await sharp(walkFile).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+   const corrected=splitSilhouettes(rgba,meta.width,meta.height,4,2,{ordered:'rows',threshold:64});
+   const median=values=>values.sort((a,b)=>a-b)[Math.floor(values.length/2)];
+   const targetWidth=median(poses.slice(4,12).map(p=>p.width))*scale;
+   const targetHeight=median(poses.slice(4,12).map(p=>p.height))*scale;
+   const walkScale=Math.min(targetWidth/median(corrected.map(p=>p.width)),targetHeight/median(corrected.map(p=>p.height)),92/Math.max(...corrected.map(p=>p.width)),96/Math.max(...corrected.map(p=>p.height)));
+   for(const [i,p]of corrected.entries()){
+    const width=Math.max(1,Math.round(p.width*walkScale)),height=Math.max(1,Math.round(p.height*walkScale));
+    const input=await sharp(p.rgba,{raw:{width:p.width,height:p.height,channels:4}}).resize(width,height).png().toBuffer();
+    cells[4+i]=await sharp({create:{width:100,height:110,channels:4,background:'#00000000'}}).composite([{input,left:Math.round((100-width)/2),top:103-height}]).png().toBuffer();
+   }
+  }
   // Override only reviewed sleep poses. Other cells retain their exact original bytes.
   if(sleepFixes[breed]){
    const fix=sleepFixes[breed],{data:rgba,info:meta}=await sharp(fix.file).ensureAlpha().raw().toBuffer({resolveWithObject:true});

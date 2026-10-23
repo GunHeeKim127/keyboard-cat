@@ -5,6 +5,6 @@ test('asset cache detects changed bytes, missing files and a changed generation 
 test('corrupt and oversized build caches safely rebuild',t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'keyboard-cat-cache-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'cache.json');for(const value of ['{','null','[]','x'.repeat(65537)]){fs.writeFileSync(file,value);assert.deepEqual(readCache(file),{});}fs.writeFileSync(file,'{"cockatoo":{"key":"ok"}}');assert.equal(readCache(file).cockatoo.key,'ok');assert.equal(digest(Buffer.from('same')),digest(Buffer.from('same')));
 });
-test('optimization preserves parrot PNGs outside the four reviewed sleep corrections',()=>{
- const entries=Object.entries(require('./fixtures/parrot-sprites-1.3.18.json'));assert.equal(entries.length,245);for(const [file,expected]of entries){if(require('./fixtures/parrot-sleep-v2.json')[file])continue;const bytes=fs.readFileSync(file),hash=require('node:crypto').createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');assert.equal(hash,expected,file);}
+test('optimization preserves parrot PNGs outside reviewed sleep and walk corrections',()=>{
+ const entries=Object.entries(require('./fixtures/parrot-sprites-1.3.18.json'));assert.equal(entries.length,245);for(const [file,expected]of entries){if(require('./fixtures/parrot-sleep-v2.json')[file]||require('./fixtures/parrot-walk-v2.json')[file])continue;const bytes=fs.readFileSync(file),hash=require('node:crypto').createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');assert.equal(hash,expected,file);}
 });

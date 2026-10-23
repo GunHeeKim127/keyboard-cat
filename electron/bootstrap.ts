@@ -18,7 +18,7 @@ else{
    const selected=hash?store.workerCandidate(hash):store.active();
    if(selected){const archive=store.verify(selected),pkg=JSON.parse(fs.readFileSync(path.join(archive,'package.json'),'utf8'));if(pkg.version!==selected.version)throw Error('Core version mismatch');require(path.join(archive,'dist-electron','main.js'));}
    else require('./main');
-  }catch{app.exit(1);}
+  }catch(error){console.error('Keyboard Cat core startup failed:',error);app.exit(1);}
  }else{
   const launcherProfile=path.join(profile,'launcher');fs.mkdirSync(launcherProfile,{recursive:true});app.setPath('userData',launcherProfile);
   if(!app.requestSingleInstanceLock())app.quit();
@@ -27,7 +27,8 @@ else{
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;delete env.NODE_OPTIONS;delete env.KEYBOARD_CAT_CORE_CANDIDATE;delete env.KEYBOARD_CAT_CORE_ROLLBACK;
     if(candidate)env.KEYBOARD_CAT_CORE_CANDIDATE=candidate.sha256;
     if(rollback)env.KEYBOARD_CAT_CORE_ROLLBACK='1';
-    return spawn(process.execPath,['--keyboard-cat-core-worker'],{env,windowsHide:true,stdio:['ignore','ignore','ignore','ipc']});
+    const child=spawn(process.execPath,['--keyboard-cat-core-worker'],{env,windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+    let bytes=0;child.stderr?.on('data',(chunk:Buffer)=>{if(bytes<16384)process.stderr.write(chunk.subarray(0,16384-bytes));bytes+=chunk.length;});return child;
    },()=>app.quit(),message=>dialog.showErrorBox('Keyboard Cat 실행 확인',message));
    app.on('second-instance',()=>supervisor.activate());app.on('activate',()=>supervisor.activate());
    app.on('window-all-closed',()=>{});app.on('before-quit',()=>supervisor.stop());

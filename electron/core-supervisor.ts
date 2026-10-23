@@ -10,7 +10,7 @@ export class CoreSupervisor{
  start(rollback=false){
   if(this.stopping)return;
   try{this.store.recoverActive();}catch{this.error('업데이트 저장 위치를 안전하게 확인하지 못했어요. 기존 설치파일로 다시 설치해 주세요.');this.stopping=true;this.finished();return;}
-  try{this.candidate=this.store.candidate();}catch{try{this.store.reject();}catch{}this.candidate=undefined;rollback=true;}
+  try{this.candidate=this.store.candidate();}catch(error){console.error('Keyboard Cat core candidate rejected:',error);try{this.store.reject('verification');}catch{}this.candidate=undefined;rollback=true;}
   const generation=++this.generation;this.restart=false;this.failed=false;this.reason='crash';
   try{this.child=this.launch(this.candidate,rollback);}catch{this.error('앱을 실행하지 못했어요.');this.stop();this.finished();return;}
   const child=this.child;
@@ -20,7 +20,7 @@ export class CoreSupervisor{
    const m=message as {type?:unknown;screen?:unknown;input?:unknown};
    if(m?.type==='core-health'){this.reason=m.input==='permission'?'permission':m.screen!==true?'screen':'input';}
    else if(m?.type==='core-ready'&&m.screen===true&&m.input===true){
-    try{if(this.candidate)this.store.confirm(this.candidate);this.candidate=undefined;this.clearTimer();}catch{this.failed=true;child.kill();}
+    try{if(this.candidate){this.store.confirm(this.candidate);if(child.connected)child.send({type:'core-confirmed'},()=>{});}this.candidate=undefined;this.clearTimer();}catch{this.failed=true;child.kill();}
    }else if(m?.type==='core-switch')this.restart=true;
    else if(m?.type==='core-installer'){this.installer=true;this.stopping=true;this.clearTimer();this.finished();}
   });

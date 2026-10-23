@@ -7,7 +7,7 @@ import type {UpdateInfo} from '../electron/updates';
 import {DogBreed,PetKind,CatBreed,catBreeds,catBreedNames,catBreedTraits,breeds,breedNames,breedTraits,spriteFor,spriteDuration} from '../electron/pets';
 type Options={pet:PetKind;dogBreed:DogBreed;catBreed:CatBreed;parrotBreed:ParrotBreed;avatarName:string;nameDisplay:NameDisplay;quality:string;size:number;fps:number;wander:boolean;effects:boolean;restAnimation:boolean;sleepAnimation:boolean;showCombo:boolean;grabEnabled:boolean;multiMonitor:boolean};
 type State={buildLabel:string;diagnosticReport:string;version:string;platform:string;inputReady:boolean;options:Options;facing:number;combo:number;paused:boolean;moving:boolean;carried:boolean;landing:boolean;hookError:string;effect:number;effectAt:number;lastHit:number;action:string;animate:boolean};
-declare global {interface Window{cat:{snapshot:()=>Promise<State>;updates:(action:'check'|'download'|'notes'|'status'|'install'|'retry-core'|'cancel-core')=>Promise<UpdateInfo|boolean|undefined>;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
+declare global {interface Window{cat:{snapshot:()=>Promise<State>;updates:(action:'check'|'download'|'notes'|'status'|'install'|'retry-core'|'cancel-core')=>Promise<UpdateInfo|boolean|undefined>;onUpdateStatus:(fn:()=>void)=>()=>void;onState:(fn:(s:State)=>void)=>()=>void;lock:()=>void;command:(v:string)=>void;options:(v:unknown)=>void;hover:(v:boolean)=>void;carry:(v:boolean)=>void}}}
 // Each generated pet frame has its own texture, so fractional sizes cannot reveal adjacent poses.
 // Assets are a fixed, finite set. Retain successful decodes across motion changes.
 const frameTextures=new Map<string,Promise<HTMLImageElement>>();
@@ -46,7 +46,7 @@ function MacPermission(){
 }
 function Updates(){
  const [info,setInfo]=useState<UpdateInfo>(),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
- useEffect(()=>{let active=true;void window.cat.updates('status').then(value=>{if(active&&value&&typeof value==='object')setInfo(value);}).catch(()=>{});return()=>{active=false;};},[]);
+ useEffect(()=>{let active=true;const refresh=()=>{void window.cat.updates('status').then(value=>{if(active&&value&&typeof value==='object')setInfo(previous=>previous?{...previous,installation:value.installation,failure:value.failure}:value);}).catch(()=>{});};refresh();const remove=window.cat.onUpdateStatus(refresh);return()=>{active=false;remove();};},[]);
  const phase=info?.installation?.phase,working=phase==='checking'||phase==='downloading'||phase==='installing';
  useEffect(()=>{
   if(!working)return;

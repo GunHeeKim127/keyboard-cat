@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import {coreFs as fs} from './core-io';
 import path from 'node:path';
 import {createHash,randomUUID,verify} from 'node:crypto';
 import {newerVersion} from './updates';

@@ -1,5 +1,6 @@
 import https from 'node:https';
-import fs from 'node:fs';
+import {coreFs as fs} from './core-io';
+import type {WriteStream} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {isUpdaterResource} from './installed-updater';
 import type {IncomingMessage} from 'node:http';
@@ -7,7 +8,7 @@ export type CoreAsset={url:string;size:number;sha256:string};
 // A bounded stream; redirects remain on GitHub's release infrastructure.
 export function downloadCore(asset:CoreAsset,file:string,progress:(percent:number)=>void=()=>{}):Promise<void>{
  return new Promise((resolve,reject)=>{
-  let request:ReturnType<typeof https.get>|undefined,responseStream:IncomingMessage|undefined,output:fs.WriteStream|undefined,done=false,owned=false;
+  let request:ReturnType<typeof https.get>|undefined,responseStream:IncomingMessage|undefined,output:WriteStream|undefined,done=false,owned=false;
   const finish=(error?:Error)=>{if(done)return;done=true;clearTimeout(timer);if(error){request?.destroy();responseStream?.destroy();const clean=()=>{if(owned)try{fs.unlinkSync(file);}catch{}reject(error);};if(output&&!output.closed){output.once('close',clean);output.destroy();}else clean();}else if(output&&!output.closed)output.once('close',resolve);else resolve();};
   const timer=setTimeout(()=>finish(Error('Core download timeout')),180000);
   const visit=(url:string,redirects:number)=>{

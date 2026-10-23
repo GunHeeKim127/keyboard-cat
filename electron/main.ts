@@ -127,7 +127,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    const store=new CoreStore(app.getPath('userData'),app.getVersion(),coreRuntime(process.execPath,process.resourcesPath,process.platform,process.arch,process.versions.electron));coreStore=store;
    coreUpdater=new CoreUpdater(store,()=>{process.send!({type:'core-switch'},error=>{if(error){quitting=false;app.quit();return;}app.quit();});});
    if(process.env.KEYBOARD_CAT_CORE_ROLLBACK==='1')coreUpdater.state.message='새 기능 묶음의 정상 실행을 확인하지 못해 이전 버전으로 돌아왔어요.';
-   process.on('message',message=>{const type=(message as {type?:unknown})?.type;if(type==='core-activate')void openRemote();else if(type==='core-quit')app.quit();});
+   process.on('message',message=>{const type=(message as {type?:unknown})?.type;if(type==='core-activate')void openRemote();else if(type==='core-quit')app.quit();else if(type==='core-confirmed'){if(coreUpdater)coreUpdater.state={phase:'idle',progress:0,message:'새 버전의 정상 실행을 확인했어요.',mode:'core'};remote?.webContents.send('update-status');}});
    process.on('disconnect',()=>app.quit());
   }
   ipcMain.handle('snapshot',e=>{if(trusted(e))return state();});
@@ -227,10 +227,13 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-option=multiMonitor]').click()`);await new Promise(r=>setTimeout(r,100));
    if(options.multiMonitor||JSON.parse(readFileSync(settingsPath(),'utf8')).options.multiMonitor!==false)throw Error('Monitor preference not saved');
    const primary=screen.getPrimaryDisplay().workArea,outsideX=primary.x-5000,outsideY=primary.y-5000;
-   positionWindow(outsideX,outsideY);const constrained=win.getPosition(),expected=limitToArea({x:outsideX,y:outsideY},options.size,primary);
-   if(constrained[0]!==expected.x||constrained[1]!==expected.y)throw Error('Primary monitor constraint failed');
+   const insidePrimary=([x,y]:number[])=>{const r=petRect(options.size);return x+r.x>=primary.x-1&&y+r.y>=primary.y-1&&x+r.x+r.width<=primary.x+primary.width+1&&y+r.y+r.height<=primary.y+primary.height+1;};
+   positionWindow(outsideX,outsideY);await new Promise(r=>setTimeout(r,100));const constrained=win.getPosition();
+   // macOS can further constrain a transparent window's frame to its work area.
+   // Verify the visible pet's containment, not a Windows-specific frame origin.
+   if(!insidePrimary(constrained))throw Error('Primary monitor constraint failed: '+JSON.stringify({constrained,primary,pet:petRect(options.size)}));
    win.setPosition(outsideX,outsideY);await new Promise(r=>setTimeout(r,100));const dragged=win.getPosition();
-   if(dragged[0]!==expected.x||dragged[1]!==expected.y)throw Error('Native drag escaped primary monitor');
+   if(!insidePrimary(dragged))throw Error('Native drag escaped primary monitor: '+JSON.stringify({dragged,primary,pet:petRect(options.size)}));
    apply({preset:'high'});if(options.multiMonitor)throw Error('Preset reset monitor choice');
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-option=multiMonitor]').click()`);await new Promise(r=>setTimeout(r,100));
    if(!options.multiMonitor)throw Error('Multi monitor enable failed');apply({preset:'low'});center();
@@ -243,6 +246,18 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    if(petUpdate!==undefined)throw Error('Pet accessed controller-only updates');
    const invalidUpdate=await remote!.webContents.executeJavaScript(`window.cat.updates('https://evil.example')`);
    if(invalidUpdate!==undefined)throw Error('Unknown update action accepted');
+   // UI history uses an isolated smoke profile; real signed promotion is covered
+   // separately by store/supervisor and packaged launcher integration tests.
+   coreStore=new CoreStore(app.getPath('userData'),currentVersion,{electron:process.versions.electron,platform:process.platform,arch:process.arch,engineSha256:'a'.repeat(64),nativeSha256:'b'.repeat(64)});
+   coreStore.noteFailure('9.9.9','permission');remote!.webContents.send('update-status');await new Promise(r=>setTimeout(r,180));
+   if(!await remote!.webContents.executeJavaScript(`document.querySelector('.update-history')?.textContent.includes('입력 권한')`))throw Error('Failure history missing');
+   remote!.destroy();await openRemote();await new Promise(r=>setTimeout(r,180));
+   if(!await remote!.webContents.executeJavaScript(`!!document.querySelector('[data-core-retry]')`))throw Error('Failure history lost after reopen');
+   await remote!.webContents.executeJavaScript(`document.querySelector('[data-core-cancel]').click()`);await new Promise(r=>setTimeout(r,180));
+   if(!coreStore.failure()?.cancelled)throw Error('Cancellation not persisted');
+   writeFileSync(coreStore.record,'{}');remote!.webContents.send('update-status');await new Promise(r=>setTimeout(r,180));
+   if(await remote!.webContents.executeJavaScript(`!!document.querySelector('.update-history')`))throw Error('Successful update left failure history visible');
+   coreStore=undefined;const updateHistoryReport={reopened:true,cancelled:true,clearedAfterConfirmation:true};
    if(!report.ready||panelReport.presets!==3||panelReport.toggles<4)throw Error('Pet/remote not ready');
    await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));
    const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(currentVersion)})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+currentVersion)};})()`);
@@ -415,7 +430,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,aspectReport,mouseSelection:true}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,aspectReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

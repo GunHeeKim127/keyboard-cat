@@ -54,10 +54,11 @@
       ]
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
-      "artifactName": "Keyboard-Cat-${version}-setup.exe"
+      "artifactName": "Keyboard-Cat-${version}-setup.exe",
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [

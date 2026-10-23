@@ -4,7 +4,7 @@ const {CoreUpdater}=require('../dist-electron/core-updater');
 const {CoreSupervisor}=require('../dist-electron/core-supervisor');
 const {parseRelease}=require('../dist-electron/updates');
 function fixture(t,platform='win32'){
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'keyboard-cat-core-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'keyboard-cat-core-')));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const keys=crypto.generateKeyPairSync('ed25519'),pub=keys.publicKey.export({type:'spki',format:'pem'}),runtime={electron:'42.0.0',platform,arch:'x64',engineSha256:'a'.repeat(64),nativeSha256:'b'.repeat(64)},store=new CoreStore(dir,'2.1.1',runtime,pub);store.prepare();
  const make=(version='2.1.2',bytes=Buffer.from('archive '+version),override={})=>{const m={format:1,version,runtime:{...runtime},size:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex'),...override};m.signature=crypto.sign(null,coreSigningData(m),keys.privateKey).toString('base64');return {m,bytes};};
  const put=f=>{fs.writeFileSync(store.file(f.m),f.bytes);return f.m;};return {dir,store,runtime,make,put,pub};
@@ -63,4 +63,8 @@ test('a newer full installation never starts an older pending core',t=>{
 });
 test('damaged active core and corrupt journal fall back to built-in without deleting unknown bytes',t=>{
  const f=fixture(t),a=f.put(f.make());f.store.stage(a);f.store.candidate();f.store.confirm(a);fs.appendFileSync(f.store.file(a),'tampered');f.store.recoverActive();assert.equal(f.store.active(),undefined);assert.equal(f.store.failure().code,'verification');assert(fs.existsSync(f.store.file(a)));fs.writeFileSync(f.store.record,'{broken');f.store.recoverActive();assert.equal(f.store.active(),undefined);assert(fs.readdirSync(f.store.root).some(n=>n.startsWith('state.json.invalid-')));
+});
+test('confirmed successful new version clears persisted failure and cancellation state',t=>{
+ const f=fixture(t),a=f.put(f.make());f.store.stage(a);f.store.candidate();f.store.reject('permission');f.store.cancel();assert.equal(f.store.failure().cancelled,true);
+ const b=f.put(f.make('2.1.3'));f.store.stage(b);f.store.candidate();assert.equal(f.store.failure().cancelled,true);f.store.confirm(b);assert.equal(f.store.failure(),undefined);const reopened=new CoreStore(f.dir,'2.1.1',f.runtime,f.pub);assert.equal(reopened.failure(),undefined);assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(reopened.record,'utf8'))),['active']);
 });

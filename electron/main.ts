@@ -279,6 +279,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    for(const dogBreed of breeds){win.webContents.send('state',{...state(),options:{...options,pet:'dog',dogBreed},action:'WALK',animate:true,carried:false});await new Promise(r=>setTimeout(r,80));}
    for(const catBreed of catBreeds){win.webContents.send('state',{...state(),options:{...options,pet:'cat',catBreed},action:'WALK',animate:true,carried:false});await new Promise(r=>setTimeout(r,80));}
    for(const parrotBreed of parrotBreeds){win.webContents.send('state',{...state(),options:{...options,pet:'parrot',parrotBreed},action:'WALK',animate:true,carried:false});await new Promise(r=>setTimeout(r,80));}
+   for(const monkeyBreed of monkeyBreeds){win.webContents.send('state',{...state(),options:{...options,pet:'monkey',monkeyBreed},action:'WALK',animate:true,carried:false});await new Promise(r=>setTimeout(r,80));}
    spriteLoadDelay=0;win.webContents.send('state',state());await new Promise(r=>setTimeout(r,150));
    await remote!.webContents.executeJavaScript(`window.cat.command('input-diagnostics')`);await new Promise(r=>setTimeout(r,100));
    const diagnosticsReady=await remote!.webContents.executeJavaScript(`(()=>{const report=document.querySelector('.input-diagnostics textarea');return !!report&&report.value.includes('Keyboard Cat '+${JSON.stringify(currentVersion)})&&document.querySelector('[data-app-version]')?.textContent===${JSON.stringify('v'+currentVersion)};})()`);
@@ -476,7 +477,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    apply({pet:'parrot'});landingUntil=0;
    for(let i=0;i<24;i++){const action=['WALK','FLY','SLEEP','CLIMB_DOWN'][i%4];win.webContents.send('state',{...state(),action,carried:false,animate:true});await new Promise(r=>setTimeout(r,40));}
    await new Promise(r=>setTimeout(r,250));
-   const paintReport=await win.webContents.executeJavaScript(`(()=>{const r=window.__spritePaint;r.active=false;return {paints:r.paints,blank:r.blank,incomplete:r.incomplete,delayedLoadTransitions:16,rapidCachedTransitions:24};})()`);
+   const paintReport=await win.webContents.executeJavaScript(`(()=>{const r=window.__spritePaint;r.active=false;return {paints:r.paints,blank:r.blank,incomplete:r.incomplete,delayedLoadTransitions:21,rapidCachedTransitions:24};})()`);
    if(paintReport.paints<20||paintReport.blank||paintReport.incomplete)throw Error('Sprite paint continuity failed: '+JSON.stringify(paintReport));
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});

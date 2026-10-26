@@ -48,6 +48,12 @@
 
 [data-pet-kind="parrot"] .pet.walk .sprite {animation:none;}
 [data-pet-kind="parrot"] .pet.land {animation:none;}
+[data-pet-kind="monkey"] .pet.walk,[data-pet-kind="monkey"] .pet.walk .sprite,[data-pet-kind="monkey"] .pet.land,[data-pet-kind="monkey"] .pet.landing {animation:none;}
+[data-pet-kind="monkey"] .pet.carry {transform-origin:50% 12%;animation:monkey-hang 2.4s ease-in-out infinite;}
+[data-pet-kind="monkey"][data-parrot-playing="false"] .pet {animation:none;}
+.pet-tabs {flex-wrap:wrap;}
+.pet-tabs button {min-width:55px;}
+@keyframes monkey-hang {0%,100%{rotate:-1deg}50%{rotate:1deg}}
 [data-pet-kind="parrot"] .pet .facing {position:relative;z-index:1;}
 
 [data-pet-kind="parrot"] .pet.climb_up .sprite {animation:parrot-climb-up 1.6s linear both;}

@@ -12,10 +12,24 @@ export function monkeySpriteFor(breed:MonkeyBreed,action:string){
 }
 const holds:Record<string,number>={IDLE:650,WALK:150,FORAGE:450,CLIMB_UP:450,CLIMB_DOWN:450,TRAVEL:300,DISPLAY:600,SLEEP:1400,CARRY:700,LAND:300};
 export function monkeyDuration(breed:MonkeyBreed,action:string,frames:number,fps:number){
- const slow=breed==='loris'&&['WALK','CLIMB_UP','CLIMB_DOWN','TRAVEL'].includes(action)?2:1;
+ if(action==='WALK'){const hold={capuchin:150,loris:300,tamarin:125,macaque:160,langur:180}[breed]??150;return frames*Math.max(1000/fps,hold)/1000;}
+ const slow=breed==='loris'&&['CLIMB_UP','CLIMB_DOWN','TRAVEL'].includes(action)?2:1;
  return frames*Math.max(1000/fps,(holds[action]??650)*slow)/1000;
 }
-export function monkeySpeed(breed:MonkeyBreed){return breed==='loris'?1:breed==='tamarin'?3:2;}
+// Distance per complete painted stride, in source-frame pixels. Match translation
+// to frame cadence and displayed size so low FPS does not make the feet drag.
+export function monkeyWalkVelocity(breed:MonkeyBreed,size:number,fps:number){
+ const stride={capuchin:20,loris:22,tamarin:18,macaque:20,langur:22}[breed]??20;
+ return stride*(112/110)*size/monkeyDuration(breed,'WALK',8,fps);
+}
+export class MonkeyWalkStepper{
+ private fraction=0;
+ reset(){this.fraction=0;}
+ advance(breed:MonkeyBreed,size:number,fps:number,direction:number){
+  const travel=this.fraction+monkeyWalkVelocity(breed,size,fps)*.1*direction,integer=Math.trunc(travel);
+  this.fraction=travel-integer;return integer;
+ }
+}
 export function monkeyAnimationState(breed:MonkeyBreed,paused:boolean,lowPower:boolean,moving:boolean,idleFor:number,count:number,effect:number,age:number){
  const slow=breed==='loris',climb=slow?3600:1800,travel=slow?2400:1200;
  const duration=effect===20?climb*2+1200:effect===30?travel+1200:effect===50?2400:1800;

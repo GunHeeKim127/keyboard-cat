@@ -1,0 +1,160 @@
+{
+  "method": "whole-pose pupil-height scale and eye-x alignment, no separate limbs",
+  "pupilHeight": 67,
+  "eyeX": 420,
+  "scale": 0.34074386350315455,
+  "poses": [
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-0.png",
+      "box": {
+        "left": 158,
+        "top": 159,
+        "width": 1212,
+        "height": 725
+      },
+      "eye": {
+        "left": 1162,
+        "top": 430,
+        "width": 60,
+        "height": 63,
+        "area": 2148,
+        "cx": 1196.1527001862198,
+        "cy": 458.50837988826817
+      },
+      "factor": 1.0634920634920635
+    },
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-1.png",
+      "box": {
+        "left": 117,
+        "top": 136,
+        "width": 1332,
+        "height": 784
+      },
+      "eye": {
+        "left": 1268,
+        "top": 442,
+        "width": 69,
+        "height": 70,
+        "area": 2621,
+        "cx": 1307.2334986646317,
+        "cy": 473.2510492178558
+      },
+      "factor": 0.9571428571428572
+    },
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-2.png",
+      "box": {
+        "left": 141,
+        "top": 136,
+        "width": 1227,
+        "height": 768
+      },
+      "eye": {
+        "left": 1230,
+        "top": 440,
+        "width": 64,
+        "height": 63,
+        "area": 2094,
+        "cx": 1266.8949379178605,
+        "cy": 467.06876790830944
+      },
+      "factor": 1.0634920634920635
+    },
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-3.png",
+      "box": {
+        "left": 147,
+        "top": 150,
+        "width": 1251,
+        "height": 732
+      },
+      "eye": {
+        "left": 1179,
+        "top": 432,
+        "width": 56,
+        "height": 67,
+        "area": 2109,
+        "cx": 1209.642484589853,
+        "cy": 461.0730203888099
+      },
+      "factor": 1
+    },
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-4.png",
+      "box": {
+        "left": 256,
+        "top": 172,
+        "width": 1062,
+        "height": 686
+      },
+      "eye": {
+        "left": 1137,
+        "top": 445,
+        "width": 53,
+        "height": 61,
+        "area": 1957,
+        "cx": 1167.146653040368,
+        "cy": 472.2631578947368
+      },
+      "factor": 1.098360655737705
+    },
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-5.png",
+      "box": {
+        "left": 88,
+        "top": 115,
+        "width": 1375,
+        "height": 813
+      },
+      "eye": {
+        "left": 1278,
+        "top": 431,
+        "width": 66,
+        "height": 72,
+        "area": 2662,
+        "cx": 1314.9222389181066,
+        "cy": 462.7381667918858
+      },
+      "factor": 0.9305555555555556
+    },
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-6.png",
+      "box": {
+        "left": 97,
+        "top": 116,
+        "width": 1374,
+        "height": 797
+      },
+      "eye": {
+        "left": 1261,
+        "top": 408,
+        "width": 68,
+        "height": 70,
+        "area": 2683,
+        "cx": 1298.9433469996272,
+        "cy": 439.96943719716734
+      },
+      "factor": 0.9571428571428572
+    },
+    {
+      "file": "assets/monkeys/capuchin-walk-v3-frame-7.png",
+      "box": {
+        "left": 123,
+        "top": 144,
+        "width": 1315,
+        "height": 753
+      },
+      "eye": {
+        "left": 1218,
+        "top": 426,
+        "width": 62,
+        "height": 67,
+        "area": 2266,
+        "cx": 1253.1535745807591,
+        "cy": 455.60591350397175
+      },
+      "factor": 1
+    }
+  ]
+}

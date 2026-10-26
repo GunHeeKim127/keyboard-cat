@@ -2,7 +2,7 @@ name: Verify launcher v2
 run-name: Launcher v2 verification - ${{ github.sha }}
 on:
   push:
-    branches: ['codex/launcher-2.1.1', 'codex/flicker-2.1.2', 'codex/monkeys-2.2.0', 'codex/monkey-motion-2.2.1']
+    branches: ['codex/launcher-2.1.1', 'codex/flicker-2.1.2', 'codex/monkeys-2.2.0', 'codex/monkey-motion-2.2.1', 'codex/monkey-walk-2.2.2']
   workflow_dispatch:
 permissions:
   contents: read

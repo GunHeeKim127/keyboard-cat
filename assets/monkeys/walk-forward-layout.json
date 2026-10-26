@@ -1,0 +1,132 @@
+{
+  "capuchin": {
+    "cut": 86,
+    "stride": 20,
+    "footWindows": [
+      [
+        25,
+        60
+      ],
+      [
+        61,
+        95
+      ]
+    ],
+    "protectedFace": [
+      64,
+      58,
+      29,
+      26
+    ],
+    "protectedTorso": [
+      38,
+      73,
+      25,
+      10
+    ]
+  },
+  "loris": {
+    "cut": 89,
+    "stride": 22,
+    "footWindows": [
+      [
+        15,
+        51
+      ],
+      [
+        52,
+        95
+      ]
+    ],
+    "protectedFace": [
+      54,
+      52,
+      40,
+      34
+    ],
+    "protectedTorso": [
+      30,
+      69,
+      20,
+      12
+    ]
+  },
+  "tamarin": {
+    "cut": 91,
+    "stride": 18,
+    "footWindows": [
+      [
+        35,
+        64
+      ],
+      [
+        65,
+        96
+      ]
+    ],
+    "protectedFace": [
+      62,
+      55,
+      34,
+      35
+    ],
+    "protectedTorso": [
+      51,
+      79,
+      13,
+      8
+    ]
+  },
+  "macaque": {
+    "cut": 81,
+    "stride": 20,
+    "footWindows": [
+      [
+        15,
+        50
+      ],
+      [
+        52,
+        90
+      ]
+    ],
+    "protectedFace": [
+      40,
+      44,
+      50,
+      35
+    ],
+    "protectedTorso": [
+      31,
+      73,
+      20,
+      9
+    ]
+  },
+  "langur": {
+    "cut": 83,
+    "stride": 22,
+    "footWindows": [
+      [
+        28,
+        62
+      ],
+      [
+        63,
+        96
+      ]
+    ],
+    "protectedFace": [
+      63,
+      49,
+      32,
+      32
+    ],
+    "protectedTorso": [
+      46,
+      74,
+      16,
+      11
+    ]
+  }
+}

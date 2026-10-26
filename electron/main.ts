@@ -42,7 +42,7 @@ let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
 let installerGate:InstallerGate|undefined;
-const buildLabel='원숭이 네 발 보행 교정 · 다른 모션 유지';
+const buildLabel='원숭이 16프레임 보행 · 기존 외형 유지';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
@@ -468,6 +468,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(!carried||!await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`))throw Error('Parrot carry failed');finishCarry();
     parrotReport.push({breed,actions:10,mouseSelection:true,persisted:true,footCarry:true});
    }
+   // Exercise the new intermediate images at the normal high-quality cadence,
+   // not only at the slow 5 FPS used by preceding compatibility fixtures.
+   apply({fps:12});
    const monkeyReport=[],monkeyWalkReport=[];
    for(const breed of monkeyBreeds){
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=monkey]').click()`);await new Promise(r=>setTimeout(r,80));
@@ -481,7 +484,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      if(action==='WALK'){
       const sway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(sway!=='none')throw Error('Monkey walk must use whole painted frames');
       const cycle=await win.webContents.executeJavaScript(`new Promise(resolve=>{const first=document.querySelector('.sprite img'),duration=Number(first.dataset.cycleDuration)*1000,started=performance.now(),changes=[],seen=new Set();let previous=-1,bad=0;const check=()=>{const img=document.querySelector('.sprite img'),n=Number(img?.dataset.frame);if(!img?.complete||img.naturalWidth!==100||!img.getAttribute('src').startsWith(${JSON.stringify(prefix)}))bad++;if(n!==previous){changes.push(n);seen.add(n);previous=n;}if(performance.now()-started>duration*2.5+200)resolve({changes,seen:[...seen],bad,duration});else requestAnimationFrame(check);};check();})`);
-      if(cycle.bad||cycle.seen.length!==8||cycle.changes.length<16||cycle.changes.some((n:number,i:number,a:number[])=>i>0&&n!==(a[i-1]+1)%8))throw Error('Monkey stride froze, skipped or flashed '+breed+' '+JSON.stringify(cycle));
+      if(cycle.bad||cycle.seen.length!==16||cycle.changes.length<32||cycle.changes.some((n:number,i:number,a:number[])=>i>0&&n!==(a[i-1]+1)%16))throw Error('Monkey stride froze, skipped or flashed '+breed+' '+JSON.stringify(cycle));
       monkeyWalkReport.push({breed,seen:cycle.seen.length,transitions:cycle.changes.length,blank:cycle.bad,cycleMilliseconds:cycle.duration});
      }
     }

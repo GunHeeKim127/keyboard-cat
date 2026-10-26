@@ -308,10 +308,11 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    }
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-preset=high]').click()`);await new Promise(r=>setTimeout(r,150));if(options.fps!==12||!options.wander)throw Error('Preset control failed');
    await remote!.webContents.executeJavaScript(`document.querySelector('[data-preset=low]').click()`);await new Promise(r=>setTimeout(r,150));if(Number(options.fps)!==5||options.wander)throw Error('Low preset failed');
-   lastHit=Date.now()-31000;apply({sleepAnimation:true});await new Promise(r=>setTimeout(r,150));
-   const sleepOn=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('img')).animationName`);if(sleepOn!=='frames')throw Error('Sleep animation switch failed');
-   apply({sleepAnimation:false});await new Promise(r=>setTimeout(r,150));
-   const sleepOff=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('img')).animationName`);if(sleepOff!=='none')throw Error('Sleep animation did not stop');lastHit=Date.now();send();
+   const waitSleep=async(expected:string)=>win.webContents.executeJavaScript(`new Promise(resolve=>{const end=Date.now()+3000;const check=()=>{const image=document.querySelector('.sprite img'),animation=image?getComputedStyle(image).animationName:'',ready=!!image?.complete&&image.naturalWidth>0&&image.getAttribute('src')?.endsWith('SLEEP-atlas.png')&&animation===${JSON.stringify(expected)};if(ready||Date.now()>end)resolve({animation,ready});else setTimeout(check,25);};check();})`);
+   lastHit=Date.now()-31000;apply({sleepAnimation:true});
+   const sleepOnResult=await waitSleep('frames'),sleepOn=sleepOnResult.animation;if(!sleepOnResult.ready)throw Error('Sleep animation switch failed');
+   apply({sleepAnimation:false});
+   const sleepOffResult=await waitSleep('none'),sleepOff=sleepOffResult.animation;if(!sleepOffResult.ready)throw Error('Sleep animation did not stop');lastHit=Date.now();send();
    setMoving(true);setMoving(false);const before=stateMessages;await new Promise(r=>setTimeout(r,350));if(before!==stateMessages)throw Error('Redundant idle updates');
    const animation=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('img')).animationName`);if(animation!=='none')throw Error('Idle animation not stopped');
    const idleMessages=stateMessages-before;

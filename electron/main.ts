@@ -473,6 +473,17 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    // Exercise the new intermediate images at the normal high-quality cadence,
    // not only at the slow 5 FPS used by preceding compatibility fixtures.
    apply({fps:12});
+   // Observe each committed image as well as painted frames. A busy CI desktop
+   // can coalesce animation callbacks even when consecutive images were committed.
+   // The separate paint probe still checks every available paint for blank images.
+   const walkProbe=(prefix:string,multiplier:number)=>`new Promise(resolve=>{
+    const duration=Number(document.querySelector('.sprite img').dataset.cycleDuration)*1000,start=performance.now(),seen=new Set(),changes=[];
+    let previous=-1,bad=0,finished=false;
+    const sample=()=>{const img=document.querySelector('.sprite img'),n=Number(img?.dataset.frame);
+     if(!img?.complete||img.naturalWidth!==100||!img.getAttribute('src').startsWith(${JSON.stringify(prefix)}))bad++;
+     if(n!==previous){seen.add(n);changes.push(n);previous=n;}};
+    const observer=new MutationObserver(sample);observer.observe(document.querySelector('.sprite'),{childList:true,subtree:true,attributes:true,attributeFilter:['src','data-frame']});
+    const check=()=>{if(finished)return;sample();if(performance.now()-start>duration*${multiplier}+200){finished=true;observer.disconnect();resolve({seen:[...seen],changes,bad,duration});}else requestAnimationFrame(check);};check();})`;
    const monkeyReport=[],monkeyWalkReport=[];
    for(const breed of monkeyBreeds){
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=monkey]').click()`);await new Promise(r=>setTimeout(r,80));
@@ -485,7 +496,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      if(!ready)throw Error('Monkey pose failed '+breed+' '+action);
      if(action==='WALK'){
       const sway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(sway!=='none')throw Error('Monkey walk must use whole painted frames');
-      const cycle=await win.webContents.executeJavaScript(`new Promise(resolve=>{const first=document.querySelector('.sprite img'),duration=Number(first.dataset.cycleDuration)*1000,started=performance.now(),changes=[],seen=new Set();let previous=-1,bad=0;const check=()=>{const img=document.querySelector('.sprite img'),n=Number(img?.dataset.frame);if(!img?.complete||img.naturalWidth!==100||!img.getAttribute('src').startsWith(${JSON.stringify(prefix)}))bad++;if(n!==previous){changes.push(n);seen.add(n);previous=n;}if(performance.now()-started>duration*2.5+200)resolve({changes,seen:[...seen],bad,duration});else requestAnimationFrame(check);};check();})`);
+      const cycle=await win.webContents.executeJavaScript(walkProbe(prefix,2.5));
       if(cycle.bad||cycle.seen.length!==16||cycle.changes.length<32||cycle.changes.some((n:number,i:number,a:number[])=>i>0&&n!==(a[i-1]+1)%16))throw Error('Monkey stride froze, skipped or flashed '+breed+' '+JSON.stringify(cycle));
       monkeyWalkReport.push({breed,seen:cycle.seen.length,transitions:cycle.changes.length,blank:cycle.bad,cycleMilliseconds:cycle.duration});
      }
@@ -505,8 +516,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
      const ready=await win.webContents.executeJavaScript(`new Promise(resolve=>{const end=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img'),ok=!!img?.complete&&img.naturalWidth===100&&img.naturalHeight===110&&img.getAttribute('src').startsWith(${JSON.stringify(prefix)});if(ok||Date.now()>end)resolve(ok);else setTimeout(check,25);};check();})`);if(!ready)throw Error('Penguin pose failed '+breed+' '+action);
      if(action==='WALK'){
       if(await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`)!=='none')throw Error('Penguin must use whole painted poses');
-      const cycle=await win.webContents.executeJavaScript(`new Promise(resolve=>{const duration=Number(document.querySelector('.sprite img').dataset.cycleDuration)*1000,start=performance.now(),seen=new Set(),changes=[];let previous=-1,bad=0;const check=()=>{const img=document.querySelector('.sprite img'),n=Number(img?.dataset.frame);if(!img?.complete||img.naturalWidth!==100||!img.getAttribute('src').startsWith(${JSON.stringify(prefix)}))bad++;if(n!==previous){seen.add(n);changes.push(n);previous=n;}if(performance.now()-start>duration*2.2+200)resolve({seen:seen.size,changes,bad});else requestAnimationFrame(check);};check();})`);
-      if(cycle.bad||cycle.seen!==16||cycle.changes.length<32||cycle.changes.some((n:number,i:number,a:number[])=>i>0&&n!==(a[i-1]+1)%16))throw Error('Penguin walk froze, skipped or flashed '+breed);
+      const cycle=await win.webContents.executeJavaScript(walkProbe(prefix,2.2));
+      if(cycle.bad||cycle.seen.length!==16||cycle.changes.length<32||cycle.changes.some((n:number,i:number,a:number[])=>i>0&&n!==(a[i-1]+1)%16))throw Error('Penguin walk froze, skipped or flashed '+breed+' '+JSON.stringify(cycle));
      }
     }
     apply({grabEnabled:true});startCarry();await new Promise(r=>setTimeout(r,350));if(!carried||!await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`))throw Error('Penguin carry failed');finishCarry();

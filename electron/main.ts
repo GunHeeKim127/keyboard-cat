@@ -1,3 +1,4 @@
+import {penguinBreeds,penguinNames,penguinAnimationState,penguinCarryPosition,penguinDropPosition,PenguinWalkStepper} from './penguins';
 import {monkeyBreeds,monkeyNames,monkeyAnimationState,monkeyCarryPosition,monkeyDropPosition,MonkeyWalkStepper,monkeyWalkVelocity} from './monkeys';
 import {parrotBreeds,parrotNames,parrotAnimationState,parrotCarryPosition,parrotDropPosition} from './parrots';
 import {app,BrowserWindow,Tray,Menu,nativeImage,ipcMain,screen,dialog,session,powerMonitor,shell,clipboard} from 'electron';
@@ -36,13 +37,13 @@ const petDelivery=new StateDelivery(),controllerDelivery=new StateDelivery(true)
 let stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
 let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
-const monkeyWalk=new MonkeyWalkStepper();
+const monkeyWalk=new MonkeyWalkStepper(),penguinWalk=new PenguinWalkStepper();
 let diagnosticReport='';
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
 let installerGate:InstallerGate|undefined;
-const buildLabel='원숭이 16프레임 보행 · 기존 외형 유지';
+const buildLabel='펭귄 보행 수정 2 · 16프레임';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
@@ -51,7 +52,7 @@ function inputReport(){
 }
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',realpathSync(testProfile));}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function state(){const now=Date.now();const view=options.pet==='monkey'?monkeyAnimationState(options.monkeyBreed,paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet==='dog'?'dog':'cat');if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
+function state(){const now=Date.now();const view=options.pet==='penguin'?penguinAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='monkey'?monkeyAnimationState(options.monkeyBreed,paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet==='dog'?'dog':'cat');if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state();if(petDelivery.changed(value)){stateMessages++;win.webContents.send('state',value);}if(remote&&!remote.isDestroyed()&&controllerDelivery.changed(value))remote.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
 const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}},status=>{hookError=inputError(status);send();refresh();});
@@ -61,15 +62,15 @@ function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!p
 function enforceMonitor(){if(!options.multiMonitor&&!quitting&&win&&!win.isDestroyed()){const [x,y]=win.getPosition();positionWindow(x,y);}}
 function stopCarry(){carried=false;if(carryTimer)clearInterval(carryTimer);carryTimer=undefined;}
 let previousPointerX=0;
-function followCarry(){if(!carried||quitting||!win||win.isDestroyed()){stopCarry();return;}const p=screen.getCursorScreenPoint(),next=facingForDelta(direction,p.x-previousPointerX);previousPointerX=p.x;const pos=(options.pet==='monkey'?monkeyCarryPosition:options.pet==='parrot'?parrotCarryPosition:carryPosition)(p,options.size),b=win.getBounds();if(pos.x!==b.x||pos.y!==b.y)positionWindow(pos.x,pos.y);if(next!==direction){direction=next;send();}}
-function finishCarry(){if(!carried)return;followCarry();if(!carried)return;stopCarry();landingUntil=Date.now()+(options.pet==='parrot'?1000:450);lastHit=Date.now();const p=screen.getCursorScreenPoint(),a=screen.getDisplayNearestPoint(p).workArea,pos=(options.pet==='monkey'?monkeyDropPosition:options.pet==='parrot'?parrotDropPosition:dropPosition)(p,options.size,a);positionWindow(pos.x,pos.y);win.setIgnoreMouseEvents(!moving,{forward:true});save();send();}
+function followCarry(){if(!carried||quitting||!win||win.isDestroyed()){stopCarry();return;}const p=screen.getCursorScreenPoint(),next=facingForDelta(direction,p.x-previousPointerX);previousPointerX=p.x;const pos=(options.pet==='penguin'?penguinCarryPosition:options.pet==='monkey'?monkeyCarryPosition:options.pet==='parrot'?parrotCarryPosition:carryPosition)(p,options.size),b=win.getBounds();if(pos.x!==b.x||pos.y!==b.y)positionWindow(pos.x,pos.y);if(next!==direction){direction=next;send();}}
+function finishCarry(){if(!carried)return;followCarry();if(!carried)return;stopCarry();landingUntil=Date.now()+(options.pet==='parrot'?1000:450);lastHit=Date.now();const p=screen.getCursorScreenPoint(),a=screen.getDisplayNearestPoint(p).workArea,pos=(options.pet==='penguin'?penguinDropPosition:options.pet==='monkey'?monkeyDropPosition:options.pet==='parrot'?parrotDropPosition:dropPosition)(p,options.size,a);positionWindow(pos.x,pos.y);win.setIgnoreMouseEvents(!moving,{forward:true});save();send();}
 function startCarry(){if(quitting||!win||win.isDestroyed()||carried||moving||!options.grabEnabled)return;carried=true;previousPointerX=screen.getCursorScreenPoint().x;win.setIgnoreMouseEvents(false);followCarry();carryTimer=setInterval(followCarry,options.quality==='low'?66:33);send();}
 function setMoving(value:boolean){finishCarry();moving=value;win.setIgnoreMouseEvents(!moving,{forward:true});send();refresh();}
 function togglePause(){paused=!paused;combo.reset();effect=0;effectAt=0;lastHit=Date.now();paused?stopInput():startInput();send();refresh();}
 function center(){const a=screen.getPrimaryDisplay().workArea;positionWindow(a.x+a.width-650,a.y+a.height-280);save();}
 function secure(view:BrowserWindow){view.webContents.setWindowOpenHandler(()=>({action:'deny'}));view.webContents.on('will-navigate',e=>e.preventDefault());view.webContents.on('will-frame-navigate',e=>e.preventDefault());view.webContents.on('will-redirect',e=>e.preventDefault());view.webContents.on('will-attach-webview',e=>e.preventDefault());}
 function togglePet(){apply({pet:options.pet==='cat'?'dog':'cat'});}
-function apply(patch:unknown){finishCarry();const next=updateOptions(options,patch);if(next===options)return;options=next;monkeyWalk.reset();enforceMonitor();win.setIgnoreMouseEvents(!moving,{forward:true});save();send();refresh();}
+function apply(patch:unknown){finishCarry();const next=updateOptions(options,patch);if(next===options)return;options=next;monkeyWalk.reset();penguinWalk.reset();enforceMonitor();win.setIgnoreMouseEvents(!moving,{forward:true});save();send();refresh();}
 async function openRemote(){
  if(remote&&!remote.isDestroyed()){remote.show();remote.focus();return;}
  const a=screen.getPrimaryDisplay().workArea;
@@ -83,6 +84,7 @@ function refresh(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
  {label:'리모컨 열기',click:()=>{void openRemote();}},
  {label:options.pet==='cat'?'강아지로 전환':'고양이로 전환',click:togglePet},
  {label:'고양이 종류',submenu:catBreeds.map(b=>({label:catBreedNames[b],type:'radio' as const,checked:options.catBreed===b,click:()=>apply({pet:'cat',catBreed:b})}))},
+ {label:'펭귄 종류',submenu:penguinBreeds.map(b=>({label:penguinNames[b],type:'radio' as const,checked:options.pet==='penguin'&&options.penguinBreed===b,click:()=>apply({pet:'penguin',penguinBreed:b})}))},
  {label:'원숭이 종류',submenu:monkeyBreeds.map(b=>({label:monkeyNames[b],type:'radio' as const,checked:options.pet==='monkey'&&options.monkeyBreed===b,click:()=>apply({pet:'monkey',monkeyBreed:b})}))},
  {label:'앵무새 종류',submenu:parrotBreeds.map(b=>({label:parrotNames[b],type:'radio' as const,checked:options.pet==='parrot'&&options.parrotBreed===b,click:()=>apply({pet:'parrot',parrotBreed:b})}))},
  {label:'강아지 종류',submenu:breeds.map(b=>({label:breedNames[b],type:'radio' as const,checked:options.dogBreed===b,click:()=>apply({pet:'dog',dogBreed:b})}))},
@@ -180,7 +182,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   win.on('close',e=>{if(!quitting){e.preventDefault();setMoving(false);}});
   let previousWindowX=win.getPosition()[0];win.on('moved',()=>{const x=win.getPosition()[0];if(moving){direction=facingForDelta(direction,x-previousWindowX);send();if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}previousWindowX=x;});win.showInactive();startInput();
   powerMonitor.on('suspend',()=>{suspended=true;finishCarry();stopInput();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{suspended=false;lastHit=Date.now();startInput(false);});
-  const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&now-lastHit<30000){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+(options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):direction*3);if(nx<a.x||nx+320>a.x+a.width){direction*=-1;monkeyWalk.reset();nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}else monkeyWalk.reset();send();},100);
+  const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&now-lastHit<30000){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+(options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):direction*3);if(nx<a.x||nx+320>a.x+a.width){direction*=-1;monkeyWalk.reset();penguinWalk.reset();nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}else{monkeyWalk.reset();penguinWalk.reset();}send();},100);
   if((updateRecovery&&existsSync(updateRecovery.root))||(managedUpdateFiles&&existsSync(managedUpdateFiles.record))){
    let attempts=0,checking=false;
    startupTimer=setInterval(async()=>{
@@ -327,7 +329,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(state().action!=='WALK'||distance<=0||Math.abs(distance-expected)>expected*.3+2)throw Error('Actual monkey walking cadence mismatched '+JSON.stringify({sample,elapsed,distance,expected}));
     monkeyTravelReport.push({...sample,elapsed,distance,expected});
    }
-   options=beforeWalkOptions;direction=beforeWalkFacing;monkeyWalk.reset();lastHit=Date.now();positionWindow(beforeWalkPosition[0],beforeWalkPosition[1]);save();send();await new Promise(r=>setTimeout(r,200));
+   options=beforeWalkOptions;direction=beforeWalkFacing;monkeyWalk.reset();penguinWalk.reset();lastHit=Date.now();positionWindow(beforeWalkPosition[0],beforeWalkPosition[1]);save();send();await new Promise(r=>setTimeout(r,200));
    await win.webContents.executeJavaScript(`window.cat.carry(true)`);await new Promise(r=>setTimeout(r,150));
    const carryReport=await win.webContents.executeJavaScript(`({shown:!!document.querySelector('.carry-image'),width:document.querySelector('.carry-image')?.naturalWidth})`);if(!carried||!carryReport.shown||carryReport.width!==100)throw Error('Carry image not ready');ipcMain.emit('carry',petEvent,'invalid');if(!carried)throw Error('Non-boolean carry event accepted');
    await win.webContents.executeJavaScript(`window.cat.carry(false)`);await new Promise(r=>setTimeout(r,500));if(carried||state().landing)throw Error('Carry release failed');
@@ -492,6 +494,24 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     if(!carried||!await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`))throw Error('Monkey carry failed');finishCarry();
     monkeyReport.push({breed,actions:10,mouseSelection:true,persisted:true,handCarry:true});
    }
+   const penguinReport=[];
+   for(const breed of penguinBreeds){
+    await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=penguin]').click()`);await new Promise(r=>setTimeout(r,100));
+    await remote!.webContents.executeJavaScript(`(()=>{const select=document.querySelector('#penguin-breed');select.value=${JSON.stringify(breed)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);await new Promise(r=>setTimeout(r,100));
+    if(String(options.pet)!=='penguin'||options.penguinBreed!==breed||JSON.parse(readFileSync(settingsPath(),'utf8')).options.penguinBreed!==breed)throw Error('Penguin selection/persistence failed');landingUntil=0;
+    for(const action of ['IDLE','WALK','CALL','SLIDE','SWIM','DISPLAY','SLEEP','CARRY','LAND']){
+     win.webContents.send('state',{...state(),action,carried:action==='CARRY',animate:true});
+     const prefix=spriteFor('penguin',options.dogBreed,action,options.catBreed,options.parrotBreed,options.monkeyBreed,breed).src.replace('-atlas.png','-frame-');
+     const ready=await win.webContents.executeJavaScript(`new Promise(resolve=>{const end=Date.now()+3000;const check=()=>{const img=document.querySelector('.sprite img'),ok=!!img?.complete&&img.naturalWidth===100&&img.naturalHeight===110&&img.getAttribute('src').startsWith(${JSON.stringify(prefix)});if(ok||Date.now()>end)resolve(ok);else setTimeout(check,25);};check();})`);if(!ready)throw Error('Penguin pose failed '+breed+' '+action);
+     if(action==='WALK'){
+      if(await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`)!=='none')throw Error('Penguin must use whole painted poses');
+      const cycle=await win.webContents.executeJavaScript(`new Promise(resolve=>{const duration=Number(document.querySelector('.sprite img').dataset.cycleDuration)*1000,start=performance.now(),seen=new Set(),changes=[];let previous=-1,bad=0;const check=()=>{const img=document.querySelector('.sprite img'),n=Number(img?.dataset.frame);if(!img?.complete||img.naturalWidth!==100||!img.getAttribute('src').startsWith(${JSON.stringify(prefix)}))bad++;if(n!==previous){seen.add(n);changes.push(n);previous=n;}if(performance.now()-start>duration*2.2+200)resolve({seen:seen.size,changes,bad});else requestAnimationFrame(check);};check();})`);
+      if(cycle.bad||cycle.seen!==16||cycle.changes.length<32||cycle.changes.some((n:number,i:number,a:number[])=>i>0&&n!==(a[i-1]+1)%16))throw Error('Penguin walk froze, skipped or flashed '+breed);
+     }
+    }
+    apply({grabEnabled:true});startCarry();await new Promise(r=>setTimeout(r,350));if(!carried||!await win.webContents.executeJavaScript(`document.querySelector('.sprite img')?.getAttribute('src').includes('-CARRY-frame-')`))throw Error('Penguin carry failed');finishCarry();
+    penguinReport.push({breed,actions:9,walkFrames:16,mouseSelection:true,persisted:true,footCarry:true});
+   }
    // Rapid cached replacements must also keep a decoded image on every paint.
    apply({pet:'parrot'});landingUntil=0;
    for(let i=0;i<24;i++){const action=['WALK','FLY','SLEEP','CLIMB_DOWN'][i%4];win.webContents.send('state',{...state(),action,carried:false,animate:true});await new Promise(r=>setTimeout(r,40));}
@@ -501,7 +521,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,paintReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,monkeyReport,monkeyWalkReport,monkeyTravelReport,aspectReport,mouseSelection:true}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,paintReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,penguinReport,monkeyReport,monkeyWalkReport,monkeyTravelReport,aspectReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

@@ -1,10 +1,11 @@
 const fs=require('node:fs'),path=require('node:path');
+const penguins=require('../dist-electron/penguins');
 const pets=require('../dist-electron/pets'),parrots=require('../dist-electron/parrots'),monkeys=require('../dist-electron/monkeys');
 function runtimeSprites(){
  const required=new Set(['IDLE-0.png','carry.png']);
- function add(pet,breed,catBreed,parrotBreed,monkeyBreed,actions,atlas){
+ function add(pet,breed,catBreed,parrotBreed,monkeyBreed,actions,atlas,penguinBreed){
   for(const action of Object.keys(actions)){
-   const v=pets.spriteFor(pet,breed,action,catBreed,parrotBreed,monkeyBreed),name=path.basename(v.src);
+   const v=pets.spriteFor(pet,breed,action,catBreed,parrotBreed,monkeyBreed,penguinBreed),name=path.basename(v.src);
    if(atlas)required.add(name);else for(let i=0;i<v.frames;i++)required.add(name.replace('-atlas.png',`-frame-${i}.png`));
   }
  }
@@ -13,9 +14,10 @@ function runtimeSprites(){
  for(const breed of pets.catBreeds.filter(b=>b!=='original'))add('cat','chihuahua',breed,'cockatoo','capuchin',pets.dogFrames,false);
  for(const breed of parrots.parrotBreeds)add('parrot','chihuahua','original',breed,'capuchin',parrots.parrotFrames,false);
  for(const breed of monkeys.monkeyBreeds)add('monkey','chihuahua','original','cockatoo',breed,monkeys.monkeyFrames,false);
+ for(const breed of penguins.penguinBreeds)add('penguin','chihuahua','original','cockatoo','capuchin',penguins.penguinFrames,false,breed);
  return required;
 }
-function knownUnused(name){return /^(?:dog|cat|parrot|monkey)-[a-z-]+-[A-Z]+-atlas\.png$/.test(name)||/^(?:IDLE|WALK|JUMP|DASH|ATTACK|SLEEP|FALL|LAND|CLIMB)-\d+\.png$/.test(name)||['source.png','carry-source.png','frames.json','carry-prompt.txt'].includes(name);}
+function knownUnused(name){return /^(?:dog|cat|parrot|monkey|penguin)-[a-z-]+-[A-Z]+-atlas\.png$/.test(name)||/^(?:IDLE|WALK|JUMP|DASH|ATTACK|SLEEP|FALL|LAND|CLIMB)-\d+\.png$/.test(name)||['source.png','carry-source.png','frames.json','carry-prompt.txt'].includes(name);}
 function prune(root=path.resolve(__dirname,'../dist/sprites')){
  const absolute=path.resolve(root),required=runtimeSprites();
  if(fs.lstatSync(absolute).isSymbolicLink()||fs.lstatSync(path.dirname(absolute)).isSymbolicLink())throw Error('Linked sprite root cannot be pruned');

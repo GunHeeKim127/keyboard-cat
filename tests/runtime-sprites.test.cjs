@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {runtimeSprites,prune}=require('../scripts/prune-runtime-sprites.cjs');
 function fixture(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'keyboard-cat-sprites-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const name of runtimeSprites())fs.writeFileSync(path.join(root,name),'required');return root;}
 test('runtime inventory keeps original cat atlases, tray, carry and all selectable pet frames',()=>{
- const required=runtimeSprites();assert.equal(required.size,731);for(const name of ['IDLE-0.png','IDLE-atlas.png','CLIMB-atlas.png','carry.png','monkey-loris-WALK-frame-15.png','dog-husky-CARRY-frame-1.png','cat-siamese-WALK-frame-7.png','parrot-macaw-FLY-frame-3.png'])assert.ok(required.has(name),name);
+ const required=runtimeSprites();assert.equal(required.size,971);for(const name of ['penguin-gentoo-WALK-frame-7.png','IDLE-0.png','IDLE-atlas.png','CLIMB-atlas.png','carry.png','monkey-loris-WALK-frame-15.png','dog-husky-CARRY-frame-1.png','cat-siamese-WALK-frame-7.png','parrot-macaw-FLY-frame-3.png'])assert.ok(required.has(name),name);
  for(const name of required)assert.ok(fs.statSync(path.join('public/sprites',name)).isFile(),name);
 });
 test('pruning removes only unused build copies and preserves unknown images and every required byte',t=>{

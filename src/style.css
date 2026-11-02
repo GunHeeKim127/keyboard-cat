@@ -60,3 +60,7 @@
 [data-pet-kind="parrot"] .pet.climb_down .sprite {animation:parrot-climb-down 1.6s linear both;}
 @keyframes parrot-climb-up {from{translate:0 0}to{translate:0 -10px}}
 @keyframes parrot-climb-down {from{translate:0 -10px}to{translate:0 0}}
+
+/* Penguins use complete painted poses, with no added limb/body transforms. */
+[data-pet-kind="penguin"] .pet,[data-pet-kind="penguin"] .pet .sprite {animation:none;}
+[data-pet-kind="penguin"] .pet.walk .sprite {animation:none;}

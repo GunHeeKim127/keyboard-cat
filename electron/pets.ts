@@ -1,8 +1,9 @@
+import {PenguinBreed,penguinSpriteFor,penguinDuration} from './penguins';
 import {ParrotBreed,parrotSpriteFor,parrotDuration} from './parrots';
 import {MonkeyBreed,monkeySpriteFor,monkeyDuration} from './monkeys';
 export const breeds=['chihuahua','jindo','retriever','shiba','husky'] as const;
 export type DogBreed=typeof breeds[number];
-export type PetKind='cat'|'dog'|'parrot'|'monkey';
+export type PetKind='cat'|'dog'|'parrot'|'monkey'|'penguin';
 export const catBreeds=['original','ragdoll','russian-blue','norwegian-forest','siamese','persian'] as const;
 export type CatBreed=typeof catBreeds[number];
 export const catBreedNames:Record<CatBreed,string>={original:'Original · 기존 고양이',ragdoll:'랙돌', 'russian-blue':'러시안 블루','norwegian-forest':'노르웨이 숲',siamese:'샴',persian:'페르시안'};
@@ -15,7 +16,8 @@ export const dogFrames:Record<string,number>={IDLE:4,WALK:8,JUMP:2,DASH:2,ATTACK
 const isolatedFrameHold:Record<string,number>={IDLE:500,WALK:100,JUMP:400,DASH:350,ATTACK:450,SLEEP:1200,CARRY:650,CLIMB_UP:350,CLIMB_DOWN:350,FALL:450,LAND:500};
 const catFramePace:Record<CatBreed,number>={original:1,ragdoll:1.1,'russian-blue':1,'norwegian-forest':1,siamese:.9,persian:1.2};
 // FPS is a ceiling: short dog cycles need longer holds than the cat artwork.
-export function spriteDuration(pet:PetKind,action:string,frames:number,fps:number,catBreed:CatBreed='original',parrotBreed:ParrotBreed='cockatoo',monkeyBreed:MonkeyBreed='capuchin'){
+export function spriteDuration(pet:PetKind,action:string,frames:number,fps:number,catBreed:CatBreed='original',parrotBreed:ParrotBreed='cockatoo',monkeyBreed:MonkeyBreed='capuchin',penguinBreed:PenguinBreed='emperor'){
+ if(pet==='penguin')return penguinDuration(penguinBreed,action,frames,fps);
  if(pet==='monkey')return monkeyDuration(monkeyBreed,action,frames,fps);
  if(pet==='parrot')return parrotDuration(action,frames,fps);
  if(pet==='cat'&&catBreed==='original')return frames/(action==='SLEEP'?2.5:fps);
@@ -23,7 +25,8 @@ export function spriteDuration(pet:PetKind,action:string,frames:number,fps:numbe
  return frames*Math.max(1000/fps,(isolatedFrameHold[action]??500)*pace)/1000;
 }
 export function isDogBreed(value:unknown):value is DogBreed{return typeof value==='string'&&(breeds as readonly string[]).includes(value);}
-export function spriteFor(pet:PetKind,breed:DogBreed,action:string,catBreed:CatBreed='original',parrotBreed:ParrotBreed='cockatoo',monkeyBreed:MonkeyBreed='capuchin'){
+export function spriteFor(pet:PetKind,breed:DogBreed,action:string,catBreed:CatBreed='original',parrotBreed:ParrotBreed='cockatoo',monkeyBreed:MonkeyBreed='capuchin',penguinBreed:PenguinBreed='emperor'){
+ if(pet==='penguin')return penguinSpriteFor(penguinBreed,action);
  if(pet==='monkey')return monkeySpriteFor(monkeyBreed,action);
  if(pet==='parrot')return parrotSpriteFor(parrotBreed,action);
  const selected=isCatBreed(catBreed)?catBreed:'original',isolated=pet==='dog'||selected!=='original';

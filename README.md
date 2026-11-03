@@ -1,6 +1,6 @@
-# Keyboard Cat 2.4.0 작업본
+# Keyboard Cat 2.4.0
 
-## v2.4.0 창·아이콘·폴더 놀이와 Mac 권한 대기 수정 (배포 검증 중)
+## v2.4.0 창·아이콘·폴더 놀이와 Mac 권한 대기 수정
 
 - Windows: 최상위 파일·폴더 아이콘을 발판으로 이동, 창틀·모서리·낙하, 창 뒤 표시, 폴더 출입과 폴더 안 콤보, 쓰다듬기를 독립 스위치로 추가합니다. 모두 기본값은 꺼짐입니다. 기존 동물 그림과 콤보는 유지합니다.
 - 창 뒤 이동은 중력과 독립적이며 켜면 창틀을 통과해 바닥으로 내려옵니다. 창틀 걷기를 끄면 일반 중력에 끌리지 않고 공중 이동을 유지합니다. 폴더 출입을 끄면 닫힌 폴더에서는 바로 나오며, 열린 폴더 창에서는 가까운 창 끝으로 걸어간 뒤 출구 모션을 보여줍니다.
@@ -12,7 +12,12 @@
 - 착지 자세의 반복과 이동 재개 중복 대기를 줄이고, 환경 이동보다 키보드 콤보를 우선 표시합니다. 활성 이동 계산을 한 타이머로 합치고 같은 위치의 불필요한 창 이동을 생략합니다. 한글 바탕화면 폴더 연결이 끊기던 보조 프로그램 문자 전달 방식도 수정합니다.
 - 폴더 안에서 콤보가 끝나도 폴더 위에 정적인 ‘폴더 안에 있어요’ 표시를 유지합니다. 입력하면 콤보 숫자로 바뀌며 콤보 표시 스위치로 함께 숨깁니다. 추가 반복 타이머는 없습니다.
 - 개발·패키징 도구의 취약점도 수정했습니다. [보안 수정·검증 범위](SECURITY-REVIEW.md).
-- [사용법·설정 우선순위·성능·검증 범위](DESKTOP-PLAY.md). 2.4.0은 Windows·Mac 배포 전 검증을 진행합니다. 검증이 끝나기 전 공개 최신 파일은 아래 2.3.0입니다.
+- [사용법·설정 우선순위·성능·검증 범위](DESKTOP-PLAY.md). 2.4.0은 세 운영체제 실행·복구 검사와 Mac 전달 파일 검사 후 정식 배포했습니다. [전체 다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.0).
+
+- Windows 설치형: [2.4.0 setup.exe](https://github.com/GunHeeKim127/keyboard-cat/releases/download/v2.4.0/Keyboard-Cat-2.4.0-setup.exe). 휴대용은 같은 릴리스의 portable.exe입니다.
+- Mac M 계열: [2.4.0 mac-arm64.dmg](https://github.com/GunHeeKim127/keyboard-cat/releases/download/v2.4.0/Keyboard-Cat-2.4.0-mac-arm64.dmg), Intel: [mac-x64.dmg](https://github.com/GunHeeKim127/keyboard-cat/releases/download/v2.4.0/Keyboard-Cat-2.4.0-mac-x64.dmg). 이번에는 기존 앱 종료 후 응용 프로그램의 앱을 한 번 대치해야 Mac 런처 수정이 적용됩니다. [Mac 안내](MACOS.md).
+- 보안: 실행·개발 도구 포함 알려진 의존성 취약점 0건, 자동 검사 211개 및 세 운영체제 패키지·복구 검사 통과. 배포 폴더 Windows 백신 검사 탐지 0건. Mac의 실제 사용자 입력 권한은 담당자 확인 항목입니다.
+- 실행 파일의 소스는 [05fa971](https://github.com/GunHeeKim127/keyboard-cat/commit/05fa97126920866499edfd6f7476088d67ed5212)입니다. 이후 문서 커밋과 구분합니다.
 
 ## v2.3.0 펭귄 5종·전용 콤보
 

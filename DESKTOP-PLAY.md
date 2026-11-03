@@ -89,3 +89,15 @@ Windows 임시 폴더에서 정상 접근·없는 경로·독점 잠금·잠금 
 최종 전체 패키지 회귀 검사도 통과했습니다. 이미지 전환 관측 10,434회 중 빈 이미지 0회·미완성 이미지 0회, 별도 26종 상호작용 관측 2,074회도 빈 이미지·미완성 이미지 0회였습니다. 업데이트 실패 기록 재열기·취소·정상 확인 후 초기화, ASAR 복구, 기본 보안·멀티모니터·설정·콤보·들기 검사를 포함합니다. 실제 Mac 기기의 입력 권한·업데이트 재시작과 장시간/모든 GPU 조합은 미검증입니다.
 
 로컬 실행: `work/desktop-2.4.0-final/win-unpacked/Keyboard Cat.exe`. 같은 폴더의 resources 등과 함께 사용해야 하며 exe만 따로 옮기지 않습니다. 별도 미리보기 설정은 `C:\Users\kimgu\Documents\Codex\keyboard-cat-2.4.0-preview`입니다.
+
+## 최종 보안 수정·배포 결과
+
+위의 개발 도구 취약점 16건은 수정 전 기록입니다. Vite·minimatch·glob·ASAR·빌드 도구와 호환 처리를 수정하고, HTTPS 새 설치 후 개발 도구 포함 알려진 취약점 0건을 확인했습니다. 전체 자동 검사 211개, Windows·Mac arm64·Mac x64 패키지 실행·보안·복구 검사와 Mac 전달 파일 검사를 통과했습니다. 실제 사용자 Mac의 TCC 승인과 물리 입력은 담당자 확인 항목입니다. 상세는 [보안 검토](SECURITY-REVIEW.md)에 있습니다.
+
+배포 직전 ARM 재생성 이미지 79개가 원본과 다른 점을 발견해 해당 후보는 배포하지 않았습니다. 수정된 빌드는 검토한 PNG 732개의 소스·출력 해시를 확인하고 그대로 사용합니다. 최종 세 운영체제 배포 묶음의 PNG 1703개가 원본과 바이트 단위로 일치하는지 확인했습니다.
+
+폴더 안에서 콤보가 끝나도 정적인 위치 표시를 유지하며, 콤보 표시 스위치로 함께 숨깁니다. 이 표시를 위한 추가 반복 타이머는 없습니다.
+
+사용자 배포 승인에 따라 Git 커밋·푸시와 [2.4.0 정식 배포](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.0)를 완료했습니다. 이전의 미배포 문구는 해당 점검 시점의 기록입니다. 런처 변경 때문에 Mac은 한 번 전체 앱 교체가 필요합니다.
+
+실행 파일 소스: 05fa97126920866499edfd6f7476088d67ed5212. 빌드 검사: https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41629433243. Mac 전달 파일 검사: https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41630407778. 로컬 보안 검증본: work/desktop-2.4.0-secure/win-unpacked/Keyboard Cat.exe.

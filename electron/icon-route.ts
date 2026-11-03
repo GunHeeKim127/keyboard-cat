@@ -29,9 +29,12 @@ function clearPath(from:{x:number;y:number},target:IconPlatform,arc:number,obsta
 // Positions only: files are never opened, moved or changed by this planner.
 export class IconRoute{
  private hop?:{from:{x:number;y:number};target:IconPlatform;start:number;limits:IconMotionLimits};private serial=0;private current='';private restUntil=0;
+ private last=0;
  get active(){return !!this.hop;}
+ freeze(now:number){const elapsed=this.last?Math.max(0,now-this.last):0;this.last=now;if(this.hop)this.hop.start+=elapsed;if(this.restUntil)this.restUntil+=elapsed;}
  reset(){this.hop=undefined;this.current='';this.restUntil=0;}
  step(foot:{x:number;y:number},icons:IconPlatform[],now:number,limits:IconMotionLimits=defaults,obstacles:Rect[]=[]){
+  this.last=now;
   if(this.hop){const h=this.hop,target=icons.find(i=>i.id===h.target.id);if(!target||Math.hypot(target.rect.x-h.target.rect.x,target.rect.y-h.target.rect.y)>8){this.reset();return {foot,fall:true,moving:false};}
    const end=surface(target),p=Math.max(0,Math.min(1,(now-h.start)/h.limits.duration)),next=pointAt(h.from,end,p,h.limits.arc);
    if(!clearPath(h.from,target,h.limits.arc,obstacles)){this.reset();return {foot,fall:true,moving:false};}

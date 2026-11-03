@@ -22,6 +22,7 @@ export const emptyScene=():Scene=>({windows:[],folders:[],explorers:[],foldersAv
 export class DesktopWorld{
  mode:WorldMode='normal';private since=0;private last=0;private vy=0;private folder?:{id:string;rect:Rect};private inside?:Rect;private insideWindowId?:string;private exitFacing?:number;private exitCursorX?:number;private exitStart?:{x:number;y:number};private edge?:{x:number;top:number;window?:string;facing:number;y:number;mount?:{x:number;y:number;since:number}};private cooldown=0;private support?:{id:string;rect:Rect};private forceFloor=false;
  private begin(mode:WorldMode,now:number){if(mode==='exit-approach'){this.exitCursorX=undefined;this.exitFacing=undefined;this.exitStart=undefined;}this.mode=mode;this.since=now;}
+ freeze(now:number){const elapsed=this.last?Math.max(0,now-this.last):0;this.last=now;if(this.since)this.since+=elapsed;if(this.cooldown)this.cooldown+=elapsed;if(this.edge?.mount)this.edge.mount.since+=elapsed;}
  reset(){this.edge=undefined;this.mode='normal';this.folder=undefined;this.inside=undefined;this.insideWindowId=undefined;this.exitCursorX=undefined;this.exitFacing=undefined;this.exitStart=undefined;this.support=undefined;this.vy=0;this.last=0;this.forceFloor=false;}
  dropToFloor(now:number){if(this.folder)return;this.edge=undefined;this.support=undefined;this.forceFloor=true;this.vy=0;this.begin('fall',now);}
  get droppingToFloor(){return this.forceFloor;}

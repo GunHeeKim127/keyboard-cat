@@ -13,7 +13,7 @@ export function sleepPreference<T extends {action:string;animate:boolean}>(view:
 }
 export function awakeForMovement(autoSleep:boolean,idleFor:number){return !autoSleep||idleFor<30000;}
 // Active keyboard combos outrank environmental and petting poses; carrying is
-// rendered separately. Physical motion still respects its own collision rules.
+// rendered separately. Autonomous position/timeline updates freeze separately.
 export function motionVisual<T extends {action:string;animate:boolean;effect:number}>(view:T,paused:boolean,carried:boolean,landing:boolean,environment:string,petting:boolean){
  if(paused)return {...view,animate:false};
  if(carried||view.effect>0)return view;

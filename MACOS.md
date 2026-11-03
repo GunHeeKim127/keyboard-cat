@@ -1,3 +1,5 @@
+> 최신 2.4.1: [다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.1). M 계열은 mac-arm64.dmg, Intel은 mac-x64.dmg입니다. 2.4.0은 호환 기능 묶음 업데이트가 가능하며, 이전 Mac 런처는 앱을 종료하고 응용 프로그램에 새 앱을 대치하세요. OS 입력 권한을 우회하지 않습니다. 실제 Mac 키보드·한글 입력은 담당자 확인 항목입니다.
+
 > 2.4.0 정식 배포: 입력 권한 대기 중 이전 버전으로 돌아가던 런처를 수정했습니다. 한 번 전체 앱 교체가 필요합니다. M 계열은 mac-arm64.dmg, Intel은 mac-x64.dmg을 [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.0)에서 받으세요. 기존 앱을 종료하고 응용 프로그램에 대치한 뒤 그 위치에서 실행하세요. 권한 승인은 macOS 설정에서 확인해야 하며 앱이 우회하지 않습니다.
 
 # macOS 설치·실행·업데이트 매뉴얼

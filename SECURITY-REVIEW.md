@@ -35,3 +35,9 @@
 실행 의존성·전체 개발 도구의 공식 npm HTTPS 취약점 검사 0건. 새 설치·전체 자동 검사 211개, 세 운영체제 패키지 보안·동작·업데이트 복구 검사, 별도 Mac 전달 파일 검사를 통과했습니다. Windows 백신으로 로컬 실행 폴더와 최종 배포 폴더를 검사해 탐지 0건이었습니다. 업로드 대상의 비밀키·GitHub 토큰 패턴 검사에서는 발견 항목이 없었습니다. 이 검사는 전면적인 침투 테스트나 모든 악성 코드·미공개 취약점의 부재를 보증하지 않습니다. 실제 Mac TCC 승인·물리 키보드 입력은 담당자가 확인해야 합니다.
 
 소스: 05fa97126920866499edfd6f7476088d67ed5212. [빌드·실행 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41629433243), [Mac 전달 파일 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41630407778), [배포](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.0).
+
+## 2.4.1 검증 (2026-11-04)
+
+입력 화면 갱신을 기존 주기에 합치고 변하지 않은 네이티브 좌표 변환을 재사용했습니다. 키 내용은 기록하지 않으며 Windows Raw Input·Mac listen-only 입력 방식을 유지합니다. 세 플랫폼 CI의 공식 npm HTTPS 취약점 검사, 전체 자동 검사, 패키지 보안·복구 검사와 별도 Mac 전달 파일 검사를 통과했습니다. 로컬 자동 검사 216개 통과. 최종 배포 묶음의 서명·해시·1703 PNG 일치와 Windows 백신 검사를 확인했습니다. 미공개 취약점 부재나 실제 외부 앱 입력 지연 해소를 보증하는 검사는 아닙니다. Mac ARM 화면 반영 지연 구간은 추가 실기 확인 대상입니다.
+
+소스 0967930762b1dd4f0613d3d0e79034759dbe48fc. [빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41637687182), [Mac 전달 파일 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41741093640), [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.1).

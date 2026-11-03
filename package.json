@@ -1,19 +1,20 @@
 {
   "name": "keyboard-cat",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "private": true,
   "description": "Privacy-first Windows and macOS keyboard companion",
   "author": "Keyboard Cat",
   "main": "dist-electron/bootstrap.js",
   "scripts": {
     "dev": "npm run build && electron .",
-    "build": "node scripts/penguin-sprites.cjs && node scripts/parrot-sprites.cjs && node scripts/monkey-sprites.cjs && node scripts/native.cjs && tsc -p tsconfig.electron.json && tsc --noEmit && vite build && node scripts/prune-runtime-sprites.cjs",
+    "build": "node scripts/interaction-assets.cjs && node scripts/penguin-sprites.cjs && node scripts/parrot-sprites.cjs && node scripts/monkey-sprites.cjs && node scripts/native.cjs && tsc -p tsconfig.electron.json && tsc --noEmit && vite build && node scripts/prune-runtime-sprites.cjs",
     "start": "electron .",
     "dist": "npm run build && electron-builder --win nsis portable --publish never && node scripts/clean-old-releases.cjs win",
     "test": "node --test tests/*.test.cjs",
     "sprites": "node scripts/sprites.cjs && node scripts/extra-sprites.cjs && node scripts/atlas.cjs && node scripts/dog-sprites.cjs && node scripts/cat-sprites.cjs && node scripts/parrot-sprites.cjs && node scripts/monkey-sprites.cjs && node scripts/penguin-sprites.cjs",
     "dist:win": "npm run build && electron-builder --win nsis portable --publish never && node scripts/clean-old-releases.cjs win",
-    "dist:mac": "npm run build && electron-builder --mac dmg zip --arm64 --x64 --publish never && node scripts/clean-old-releases.cjs mac"
+    "dist:mac": "npm run build && electron-builder --mac dmg zip --arm64 --x64 --publish never && node scripts/clean-old-releases.cjs mac",
+    "postinstall": "node scripts/build-tool-compat.cjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9",
@@ -25,10 +26,10 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "electron": "42.11.16",
-    "electron-builder": "^26.0.0",
+    "electron-builder": "26.18.0",
     "sharp": "^0.35.5",
     "typescript": "^5.9.0",
-    "vite": "^6.4.0"
+    "vite": "6.4.5"
   },
   "build": {
     "appId": "local.keyboardcat.pet",
@@ -50,6 +51,10 @@
         {
           "from": "native/KeyCounter.exe",
           "to": "KeyCounter.exe"
+        },
+        {
+          "from": "native/DesktopScene.exe",
+          "to": "DesktopScene.exe"
         }
       ]
     },
@@ -103,6 +108,9 @@
     "node": ">=22.12.0"
   },
   "overrides": {
-    "global-agent": "4.1.3"
+    "global-agent": "4.1.3",
+    "minimatch": "11.0.1",
+    "@electron/asar": "4.3.1",
+    "glob": "14.0.2"
   }
 }

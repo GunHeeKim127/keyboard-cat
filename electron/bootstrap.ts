@@ -6,10 +6,10 @@ import {spawn} from 'node:child_process';
 import {CoreStore} from './core-store';
 import {coreRuntime} from './core-runtime';
 import {CoreSupervisor} from './core-supervisor';
-import {useSupervisor} from './launcher-policy';
+import {useSupervisor,coreWorkerArguments} from './launcher-policy';
 const worker=process.argv.includes('--keyboard-cat-core-worker');
 const installed=fs.existsSync(path.join(path.dirname(process.execPath),'Uninstall Keyboard Cat.exe'));
-if(!useSupervisor(process.platform,app.isPackaged,process.argv.includes('--smoke-test'),!!process.env.PORTABLE_EXECUTABLE_FILE,installed))require('./main');
+if(!useSupervisor(process.platform,app.isPackaged,process.argv.includes('--smoke-test')||process.argv.includes('--interaction-smoke-test')||process.argv.includes('--physical-folder-smoke'),!!process.env.PORTABLE_EXECUTABLE_FILE,installed))require('./main');
 else{
  const runtime=coreRuntime(process.execPath,process.resourcesPath,process.platform,process.arch,process.versions.electron);
  const base=app.getVersion(),profile=app.getPath('userData'),store=new CoreStore(profile,base,runtime);
@@ -29,7 +29,7 @@ else{
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;delete env.NODE_OPTIONS;delete env.KEYBOARD_CAT_CORE_CANDIDATE;delete env.KEYBOARD_CAT_CORE_ROLLBACK;
     if(candidate)env.KEYBOARD_CAT_CORE_CANDIDATE=candidate.sha256;
     if(rollback)env.KEYBOARD_CAT_CORE_ROLLBACK='1';
-    const child=spawn(process.execPath,['--keyboard-cat-core-worker'],{env,windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+    const child=spawn(process.execPath,coreWorkerArguments(profile),{env,windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
     let bytes=0;child.stderr?.on('data',(chunk:Buffer)=>{if(bytes<16384)process.stderr.write(chunk.subarray(0,16384-bytes));bytes+=chunk.length;});return child;
    },()=>app.quit(),message=>dialog.showErrorBox('Keyboard Cat 실행 확인',message));
    app.on('second-instance',()=>supervisor.activate());app.on('activate',()=>supervisor.activate());

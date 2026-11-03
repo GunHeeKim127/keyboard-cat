@@ -1,0 +1,5 @@
+const fs=require('fs'),path=require('path'),{spawn}=require('child_process');
+const root=path.resolve(process.argv[2]),exe=process.platform==='darwin'?path.join(root,'Contents/MacOS/Keyboard Cat'):path.join(root,'Keyboard Cat.exe');
+fs.mkdirSync('work/launcher-reports',{recursive:true});const out=fs.createWriteStream(`work/launcher-reports/interactions-${process.platform}-${process.arch}.log`);let report='';
+const p=spawn(exe,['--interaction-smoke-test'],{windowsHide:true,stdio:['ignore','pipe','pipe']});p.stdout.on('data',d=>{report+=d;out.write(d);});p.stderr.on('data',d=>out.write(d));const timer=setTimeout(()=>{p.kill();process.exitCode=1;console.error('Interaction smoke timed out');},120000);
+p.on('error',e=>{clearTimeout(timer);process.exitCode=1;out.end();console.error(e.message);});p.on('exit',code=>{clearTimeout(timer);out.end();if(code!==0||!report.includes('INTERACTION_SMOKE_OK ')){process.exitCode=1;console.error('Interaction smoke failed '+code);}else console.log('INTERACTION_PACKAGED_SMOKE_OK');});

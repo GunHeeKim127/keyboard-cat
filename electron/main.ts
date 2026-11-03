@@ -1,3 +1,6 @@
+import {PeriodicUpdateCheck,updateBadgeBitmap} from './update-notice';
+import {wallClimbSpeed} from './wall-motion';
+import {IconRoute,iconMotionLimits,iconHopAction,iconHopFrame,surfaceFallbackTravel} from './icon-route';
 import {penguinBreeds,penguinNames,penguinAnimationState,penguinCarryPosition,penguinDropPosition,PenguinWalkStepper} from './penguins';
 import {monkeyBreeds,monkeyNames,monkeyAnimationState,monkeyCarryPosition,monkeyDropPosition,MonkeyWalkStepper,monkeyWalkVelocity} from './monkeys';
 import {parrotBreeds,parrotNames,parrotAnimationState,parrotCarryPosition,parrotDropPosition} from './parrots';
@@ -10,7 +13,7 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync,realpathSync} from 'node
 import {findMacCopies,macLaunchLocation,macLeftovers,runningMacCopies} from './input-diagnostics';
 import {Combo} from './combo';
 import {breedNames,breeds,catBreeds,catBreedNames,spriteFor} from './pets';
-import {animationState} from './view-state';
+import {animationState,sleepPreference,awakeForMovement,motionVisual} from './view-state';
 import {StateDelivery} from './state-delivery';
 import {InstalledUpdater,isUpdaterResource} from './installed-updater';
 import {UpdateRecovery} from './update-recovery';
@@ -24,6 +27,8 @@ import {InstallerGate} from './installer-gate';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
+import {DesktopWorld,Rect,desktopMotionPolicy} from './desktop-world';
+import {DesktopSceneMonitor,nativeSceneRect} from './desktop-scene';
 import {InputMonitor,inputError} from './input-monitor';
 import {isAppResource,isTrustedFrame,readSettings} from './security';
 const distRoot=path.join(__dirname,'../dist'),indexFile=path.join(distRoot,'index.html');
@@ -31,20 +36,73 @@ const currentVersion=JSON.parse(readFileSync(path.join(__dirname,'../package.jso
 const supervised=process.argv.includes('--keyboard-cat-core-worker')&&!!process.send&&process.connected;
 let coreUpdater:CoreUpdater|undefined,coreHealthTimer:ReturnType<typeof setInterval>|undefined;
 let coreStore:CoreStore|undefined;
+let trayBase:ReturnType<typeof nativeImage.createFromPath>|undefined,trayBadge:ReturnType<typeof nativeImage.createFromPath>|undefined,trayNotice=false;
 let win:BrowserWindow,remote:BrowserWindow|undefined,tray:Tray;
 let options:Options={...presets.low},paused=false,moving=false,quitting=false,hookError='',effect=0,effectAt=0,lastHit=Date.now(),direction=1;
 const petDelivery=new StateDelivery(),controllerDelivery=new StateDelivery(true);
 let stateMessages=0,saveTimer:ReturnType<typeof setTimeout>|undefined;
 let carried=false,landingUntil=0,carryTimer:ReturnType<typeof setInterval>|undefined;
-let suspended=false;const combo=new Combo(),smoke=process.argv.includes('--smoke-test');
+const physicalFolderTest=process.argv.includes('--physical-folder-smoke');
+const interactionTest=process.argv.includes('--interaction-smoke-test');
+let suspended=false;const combo=new Combo(),smoke=physicalFolderTest||interactionTest||process.argv.includes('--smoke-test');
 const monkeyWalk=new MonkeyWalkStepper(),penguinWalk=new PenguinWalkStepper();
 let diagnosticReport='';
+let corePermissionWait=false;
+const desktopWorld=new DesktopWorld();
+let desktopView:{action:string;hidden:boolean;mode:string;occluders:Rect[];clip?:Rect;folderProgress?:number;hopFrame?:number;mountProgress?:number}={action:'',hidden:false,mode:'normal',occluders:[]};
+let desktopViewKey='',pettingUntil=0,lastPetting=0,environmentLandingUntil=0;const iconRoute=new IconRoute();
+let nativePositionWrites=0;
+let queuedDesktopTravel=0;
+let desktopMotionTimer:ReturnType<typeof setInterval>|undefined;
+function desktopCadence(){
+ const active=!paused&&!moving&&!carried&&!suspended&&!quitting&&(iconRoute.active||desktopView.action==='ICON_HOP'||desktopWorld.mode==='fall'||desktopWorld.mode==='climb'||desktopWorld.mode==='mount'||desktopWorld.mode==='enter'||desktopWorld.mode.startsWith('exit-'));
+ if(!active){if(desktopMotionTimer)clearInterval(desktopMotionTimer);desktopMotionTimer=undefined;queuedDesktopTravel=0;return;}
+ if(!desktopMotionTimer)desktopMotionTimer=setInterval(()=>{if(quitting||!win||win.isDestroyed()){if(desktopMotionTimer)clearInterval(desktopMotionTimer);desktopMotionTimer=undefined;return;}const travel=queuedDesktopTravel;queuedDesktopTravel=0;desktopStep(Date.now(),travel);send();desktopCadence();},40);
+}
+function petPointerVisible(){
+ if(desktopView.hidden)return false;const p=screen.getCursorScreenPoint(),[x,y]=win.getPosition(),px=p.x-x,py=p.y-y;
+ const hit=(r:Rect)=>px>=r.x&&px<r.x+r.width&&py>=r.y&&py<r.y+r.height;
+ return !desktopView.occluders.some(hit)&&(!desktopView.clip||hit(desktopView.clip));
+}
+const desktopScene=new DesktopSceneMonitor(app.isPackaged?path.join(process.resourcesPath,'DesktopScene.exe'):path.join(app.getAppPath(),'native/DesktopScene.exe'),r=>screen.screenToDipRect(null,nativeSceneRect(r)));
+function syncDesktop(){if(process.platform==='win32'&&!paused&&!suspended&&!quitting&&(options.desktopRoam||options.windowWalk||options.behindWindows||options.folderPlay||options.edgeClimb||desktopWorld.mode.startsWith('exit-')))desktopScene.start(options.folderPlay||options.desktopRoam||desktopWorld.mode.startsWith('exit-'));else desktopScene.stop();}
+function desktopStep(now:number,travel:number){
+ const enabled=process.platform==='win32'&&(options.desktopRoam||options.behindWindows||options.windowWalk||options.gravity||options.folderPlay||options.edgeClimb||desktopWorld.mode.startsWith('exit-'));
+ if(enabled&&paused&&!desktopWorld.mode.startsWith('exit-'))return true;
+ if(!enabled||moving||carried||suspended){if(!enabled)desktopWorld.reset();if(desktopViewKey!=='off'){desktopView={action:'',hidden:false,mode:'normal',occluders:[]};desktopViewKey='off';}return false;}
+ const [x,y]=win.getPosition(),area=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea,body=petRect(options.size),scene=desktopScene.scene;
+ const canMove=options.wander||options.desktopRoam;if(!canMove&&!desktopWorld.droppingToFloor)desktopWorld.pauseMotion();
+ let point={x,y},hopping=false,hopFrame:number|undefined;
+ if(options.desktopRoam&&(awakeForMovement(options.autoSleep,now-lastHit)||iconRoute.active)&&desktopWorld.mode==='normal'&&now>=pettingUntil&&!desktopWorld.droppingToFloor){
+  const visible=(r:Rect)=>r.x>=area.x&&r.x+r.width<=area.x+area.width&&r.y>=area.y&&r.y+r.height<=area.y+area.height&&(options.behindWindows||!scene.windows.some(w=>r.x+r.width/2>=w.rect.x&&r.x+r.width/2<w.rect.x+w.rect.width&&r.y+r.height*.2>=w.rect.y&&r.y+r.height*.2<w.rect.y+w.rect.height));
+  const icons=(scene.icons??[]).filter(i=>visible(i.rect));
+  if(options.windowWalk&&!options.behindWindows)for(const w of scene.windows)for(const [i,offset] of [body.width/2,w.rect.width/2,w.rect.width-body.width/2].entries())icons.push({id:'window:'+w.id+':'+i,rect:{x:w.rect.x+offset-10,y:w.rect.y-4,width:20,height:20}});
+  const safeIcons=icons.filter(i=>{const cx=i.rect.x+i.rect.width/2,fy=i.rect.y+i.rect.height*.2;return cx-body.width/2>=area.x&&cx+body.width/2<=area.x+area.width&&fy-body.height>=area.y&&fy<=area.y+area.height;});
+  const route=iconRoute.step({x:x+body.x+body.width/2,y:y+body.y+body.height},safeIcons,now,iconMotionLimits(options.pet,options.monkeyBreed,options.penguinBreed,body.width,options.parrotFlight),options.behindWindows?[]:scene.windows.map(w=>w.rect));
+  if(route.fall)desktopWorld.dropToFloor(now);
+  point={x:route.foot.x-body.x-body.width/2,y:route.foot.y-body.y-body.height};hopping=route.moving;hopFrame=route.progress===undefined?undefined:iconHopFrame(route.progress);if(route.facing)direction=route.facing;const onSurface=desktopWorld.onSurface||Math.abs(point.y+body.y+body.height-area.y-area.height)<3;const fallbackStep=!travel&&onSurface&&!route.moving?options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):undefined:undefined;travel=surfaceFallbackTravel(onSurface,awakeForMovement(options.autoSleep,now-lastHit),route.moving,!!route.fall,now<environmentLandingUntil,travel,direction,fallbackStep);
+ }
+ if(now<pettingUntil)travel=0;
+ const wasExiting=desktopWorld.mode.startsWith('exit-');const policy=desktopMotionPolicy(options,hopping);
+ const next=desktopWorld.step(point,body,area,{...policy,edgeClimb:policy.edgeClimb&&(awakeForMovement(options.autoSleep,now-lastHit)||desktopWorld.mode==='climb'||desktopWorld.mode==='mount'),climbSpeed:wallClimbSpeed(options),walkSpeed:options.pet==='penguin'?8*options.size:wallClimbSpeed(options)*(options.pet==='parrot'?2:1),facing:direction},scene,now,travel);
+ if(next.mode!=='normal')iconRoute.reset();if(wasExiting&&!next.mode.startsWith('exit-'))syncDesktop();
+ positionWindow(next.x,next.y);if(next.facing)direction=next.facing;if(next.reverse)direction*=-1;if(next.landing)environmentLandingUntil=now+260;
+ if(next.mode==='enter'||next.mode==='exit-closed')direction=1;
+ // Only windows in front of the current Explorer can hide an in-window pet.
+ const ownerIndex=next.ownerWindow?scene.windows.findIndex(w=>w.id===next.ownerWindow):-1;
+ const occluders=((next.mode==='inside-window'||next.mode==='exit-approach'||next.mode==='exit-window')&&ownerIndex>=0?scene.windows.slice(0,ownerIndex):options.behindWindows?scene.windows:[]).filter(w=>w.rect.x<x+320&&w.rect.x+w.rect.width>x&&w.rect.y<y+280&&w.rect.y+w.rect.height>y).map(w=>({x:Math.round(w.rect.x-next.x),y:Math.round(w.rect.y-next.y),width:Math.round(w.rect.width),height:Math.round(w.rect.height)}));
+ const clip=next.clip?{x:next.clip.x-next.x,y:next.clip.y-next.y+80,width:next.clip.width,height:Math.max(0,next.clip.height-100)}:undefined;
+ const action=now<pettingUntil?'PETTED':next.action==='ENV_FALL'?'FALL_GROUND':next.action||(hopping?iconHopAction(options.pet,hopFrame??0):now<environmentLandingUntil?'LAND_GROUND':'');
+ const view={action,hidden:next.hidden,mode:next.mode,occluders,clip,folderProgress:next.folderProgress,hopFrame,mountProgress:next.mountProgress};const key=JSON.stringify(view);if(key!==desktopViewKey){desktopView=view;desktopViewKey=key;}return true;
+}
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
 let installerGate:InstallerGate|undefined;
-const buildLabel='펭귄 보행 수정 2 · 16프레임';
+const buildLabel='창·폴더 놀이 · Mac 권한 대기 수정 · 로컬 검증';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
+function updateChanged(){if(quitting)return;refresh();send();remote?.webContents.send('update-status');}
+const updateChecks=new PeriodicUpdateCheck(()=>updates.check(),updateChanged);
 function inputReport(){
  const helper=inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath());
  const copies=process.platform==='darwin'?findMacCopies(app.getPath('home')):[];
@@ -52,25 +110,25 @@ function inputReport(){
 }
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',realpathSync(testProfile));}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function state(){const now=Date.now();const view=options.pet==='penguin'?penguinAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='monkey'?monkeyAnimationState(options.monkeyBreed,paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet==='dog'?'dog':'cat');if(now<landingUntil&&!paused){view.action='LAND';view.animate=true;}if(view.action==='SLEEP')view.animate=!paused&&options.sleepAnimation;return {buildLabel,diagnosticReport,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil,hookError,effectAt,lastHit,...view};}
+function state(){const now=Date.now();let view=options.pet==='penguin'?penguinAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='monkey'?monkeyAnimationState(options.monkeyBreed,paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet==='dog'?'dog':'cat');view=motionVisual(view,paused,carried,now<landingUntil,desktopView.action,options.petting&&now<pettingUntil);view=sleepPreference(view,options.autoSleep,paused,options.sleepAnimation);return {buildLabel,diagnosticReport,corePermissionWait,updateAvailable:updates.status().status==='available'?updates.status().version:undefined,desktopMode:desktopView.mode,desktopStatus:process.platform==='win32'?desktopScene.status:'창·폴더 상호작용은 현재 Windows에서 지원해요',desktopView,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil&&view.effect===0,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state();if(petDelivery.changed(value)){stateMessages++;win.webContents.send('state',value);}if(remote&&!remote.isDestroyed()&&controllerDelivery.changed(value))remote.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
-const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}},status=>{hookError=inputError(status);send();refresh();});
+const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),n=>{if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}send();},status=>{hookError=inputError(status);send();refresh();});
 function stopInput(){inputMonitor.stop();}
 function startInput(prompt=true){if(!paused&&!suspended&&!quitting&&!smoke)inputMonitor.start(prompt);}
-function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!pos||quitting||!win||win.isDestroyed())return false;const next=options.multiMonitor?pos:limitToArea(pos,options.size,screen.getPrimaryDisplay().workArea,carried);const [oldX,oldY]=win.getPosition();if(oldX!==next.x||oldY!==next.y)win.setPosition(next.x,next.y);return true;}
+function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!pos||quitting||!win||win.isDestroyed())return false;const next=options.multiMonitor?pos:limitToArea(pos,options.size,screen.getPrimaryDisplay().workArea,carried);const [oldX,oldY]=win.getPosition();if(oldX!==next.x||oldY!==next.y){win.setPosition(next.x,next.y);nativePositionWrites++;}return true;}
 function enforceMonitor(){if(!options.multiMonitor&&!quitting&&win&&!win.isDestroyed()){const [x,y]=win.getPosition();positionWindow(x,y);}}
 function stopCarry(){carried=false;if(carryTimer)clearInterval(carryTimer);carryTimer=undefined;}
 let previousPointerX=0;
 function followCarry(){if(!carried||quitting||!win||win.isDestroyed()){stopCarry();return;}const p=screen.getCursorScreenPoint(),next=facingForDelta(direction,p.x-previousPointerX);previousPointerX=p.x;const pos=(options.pet==='penguin'?penguinCarryPosition:options.pet==='monkey'?monkeyCarryPosition:options.pet==='parrot'?parrotCarryPosition:carryPosition)(p,options.size),b=win.getBounds();if(pos.x!==b.x||pos.y!==b.y)positionWindow(pos.x,pos.y);if(next!==direction){direction=next;send();}}
 function finishCarry(){if(!carried)return;followCarry();if(!carried)return;stopCarry();landingUntil=Date.now()+(options.pet==='parrot'?1000:450);lastHit=Date.now();const p=screen.getCursorScreenPoint(),a=screen.getDisplayNearestPoint(p).workArea,pos=(options.pet==='penguin'?penguinDropPosition:options.pet==='monkey'?monkeyDropPosition:options.pet==='parrot'?parrotDropPosition:dropPosition)(p,options.size,a);positionWindow(pos.x,pos.y);win.setIgnoreMouseEvents(!moving,{forward:true});save();send();}
-function startCarry(){if(quitting||!win||win.isDestroyed()||carried||moving||!options.grabEnabled)return;carried=true;previousPointerX=screen.getCursorScreenPoint().x;win.setIgnoreMouseEvents(false);followCarry();carryTimer=setInterval(followCarry,options.quality==='low'?66:33);send();}
+function startCarry(){if(quitting||!win||win.isDestroyed()||carried||moving||!options.grabEnabled)return;desktopWorld.reset();iconRoute.reset();carried=true;previousPointerX=screen.getCursorScreenPoint().x;win.setIgnoreMouseEvents(false);followCarry();carryTimer=setInterval(followCarry,options.quality==='low'?66:33);send();}
 function setMoving(value:boolean){finishCarry();moving=value;win.setIgnoreMouseEvents(!moving,{forward:true});send();refresh();}
-function togglePause(){paused=!paused;combo.reset();effect=0;effectAt=0;lastHit=Date.now();paused?stopInput():startInput();send();refresh();}
+function togglePause(){paused=!paused;combo.reset();effect=0;effectAt=0;lastHit=Date.now();paused?stopInput():startInput();syncDesktop();send();refresh();}
 function center(){const a=screen.getPrimaryDisplay().workArea;positionWindow(a.x+a.width-650,a.y+a.height-280);save();}
 function secure(view:BrowserWindow){view.webContents.setWindowOpenHandler(()=>({action:'deny'}));view.webContents.on('will-navigate',e=>e.preventDefault());view.webContents.on('will-frame-navigate',e=>e.preventDefault());view.webContents.on('will-redirect',e=>e.preventDefault());view.webContents.on('will-attach-webview',e=>e.preventDefault());}
 function togglePet(){apply({pet:options.pet==='cat'?'dog':'cat'});}
-function apply(patch:unknown){finishCarry();const next=updateOptions(options,patch);if(next===options)return;options=next;monkeyWalk.reset();penguinWalk.reset();enforceMonitor();win.setIgnoreMouseEvents(!moving,{forward:true});save();send();refresh();}
+function apply(patch:unknown){finishCarry();const next=updateOptions(options,patch);if(next===options)return;if(!next.folderPlay&&options.folderPlay)desktopWorld.leaveFolder(Date.now());if(options.parrotFlight&&!next.parrotFlight&&options.pet==='parrot'&&desktopView.action==='ICON_HOP'){iconRoute.reset();desktopWorld.dropToFloor(Date.now());}if(next.behindWindows&&!options.behindWindows){desktopWorld.dropToFloor(Date.now());iconRoute.reset();}if(!desktopWorld.droppingToFloor&&(!next.wander&&!next.desktopRoam||options.windowWalk&&!next.windowWalk))desktopWorld.pauseMotion();if(next.pet!==options.pet||next.size!==options.size||next.monkeyBreed!==options.monkeyBreed||next.penguinBreed!==options.penguinBreed){desktopWorld.reset();iconRoute.reset();}options=next;syncDesktop();monkeyWalk.reset();penguinWalk.reset();enforceMonitor();win.setIgnoreMouseEvents(!moving,{forward:true});save();send();refresh();}
 async function openRemote(){
  if(remote&&!remote.isDestroyed()){remote.show();remote.focus();return;}
  const a=screen.getPrimaryDisplay().workArea;
@@ -80,8 +138,8 @@ async function openRemote(){
  // Opening the controller must not change the position chosen by the user.
  try{await panel.loadFile(path.join(__dirname,'../dist/index.html'),{query:{panel:'1'}});if(!quitting&&!panel.isDestroyed())panel.show();}catch(error){if(!quitting&&!panel.isDestroyed()){panel.destroy();dialog.showErrorBox('리모컨 열기 실패',String(error));}}
 }
-function refresh(){if(!tray)return;tray.setContextMenu(Menu.buildFromTemplate([
- {label:'리모컨 열기',click:()=>{void openRemote();}},
+function refresh(){if(!tray)return;const available=updates.status().status==='available',version=updates.status().version;if(trayBase&&trayBadge&&trayNotice!==available){tray.setImage(available?trayBadge:trayBase);trayNotice=available;}tray.setToolTip(available?'Keyboard Cat · v'+version+' 업데이트 있음':'Keyboard Cat · 리모컨');tray.setContextMenu(Menu.buildFromTemplate([
+ {label:available?'리모컨 열기 · 새 업데이트 v'+version:'리모컨 열기',click:()=>{void openRemote();}},
  {label:options.pet==='cat'?'강아지로 전환':'고양이로 전환',click:togglePet},
  {label:'고양이 종류',submenu:catBreeds.map(b=>({label:catBreedNames[b],type:'radio' as const,checked:options.catBreed===b,click:()=>apply({pet:'cat',catBreed:b})}))},
  {label:'펭귄 종류',submenu:penguinBreeds.map(b=>({label:penguinNames[b],type:'radio' as const,checked:options.pet==='penguin'&&options.penguinBreed===b,click:()=>apply({pet:'penguin',penguinBreed:b})}))},
@@ -101,7 +159,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
  app.whenReady().then(async()=>{
   const saved=readSettings(settingsPath());
   if(saved.options){options=updateOptions(options,saved.options);const quality=(saved.options as Record<string,unknown>).quality;if(quality==='low'||quality==='medium'||quality==='high'||quality==='custom')options.quality=quality;}
-  win=new BrowserWindow({width:320,height:270,frame:false,transparent:true,alwaysOnTop:true,resizable:false,skipTaskbar:true,show:false,hasShadow:false,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
+  win=new BrowserWindow({width:320,height:270,frame:false,transparent:true,backgroundColor:'#00000000',thickFrame:false,alwaysOnTop:true,resizable:false,skipTaskbar:true,show:false,hasShadow:false,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
   win.setAlwaysOnTop(true,process.platform==='darwin'?'floating':'screen-saver');win.setIgnoreMouseEvents(true,{forward:true});secure(win);
   if(process.platform==='darwin'){win.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});Menu.setApplicationMenu(Menu.buildFromTemplate([{role:'appMenu'},{role:'editMenu'}]));}
   win.on('closed',stopCarry);win.on('move',enforceMonitor);screen.on('display-removed',enforceMonitor);screen.on('display-metrics-changed',enforceMonitor);
@@ -136,7 +194,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    const store=new CoreStore(app.getPath('userData'),app.getVersion(),coreRuntime(process.execPath,process.resourcesPath,process.platform,process.arch,process.versions.electron));coreStore=store;
    coreUpdater=new CoreUpdater(store,()=>{process.send!({type:'core-switch'},error=>{if(error){quitting=false;app.quit();return;}app.quit();});});
    if(process.env.KEYBOARD_CAT_CORE_ROLLBACK==='1')coreUpdater.state.message='새 기능 묶음의 정상 실행을 확인하지 못해 이전 버전으로 돌아왔어요.';
-   process.on('message',message=>{const type=(message as {type?:unknown})?.type;if(type==='core-activate')void openRemote();else if(type==='core-quit')app.quit();else if(type==='core-confirmed'){if(coreUpdater)coreUpdater.state={phase:'idle',progress:0,message:'새 버전의 정상 실행을 확인했어요.',mode:'core'};remote?.webContents.send('update-status');}});
+   process.on('message',message=>{const type=(message as {type?:unknown})?.type;if(type==='core-permission-wait'){corePermissionWait=true;send();void openRemote();}else if(type==='core-activate')void openRemote();else if(type==='core-quit')app.quit();else if(type==='core-confirmed'){corePermissionWait=false;send();if(coreUpdater)coreUpdater.state={phase:'idle',progress:0,message:'새 버전의 정상 실행을 확인했어요.',mode:'core'};remote?.webContents.send('update-status');}});
    process.on('disconnect',()=>app.quit());
   }
   ipcMain.handle('snapshot',e=>{if(trusted(e))return state();});
@@ -146,8 +204,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   ipcMain.handle('updates',async(e,action:unknown)=>{
    if(quitting||!trusted(e)||e.sender!==remote?.webContents)return undefined;
    try{
-    if(action==='check'){const info=await updates.check(),target=updates.selectedInstaller();installedUpdater?.invalidate(target?.version,target?.asset);return {...info,coreReady:!!coreUpdater&&info.coreReady,installation:installation(),failure:failure()};}
-    if(action==='status')return {status:'current',message:'',installation:installation(),failure:failure()};
+    if(action==='check'){const info=await updates.check(),target=updates.selectedInstaller();installedUpdater?.invalidate(target?.version,target?.asset);updateChanged();return {...info,coreReady:!!coreUpdater&&info.coreReady,installation:installation(),failure:failure()};}
+    if(action==='status')return {...updates.status(),coreReady:!!coreUpdater&&updates.status().coreReady,installation:installation(),failure:failure()};
     if(action==='cancel-core'){coreStore?.cancel();if(coreUpdater)coreUpdater.state={phase:'idle',progress:0,message:'이번 업데이트를 취소하고 이전 버전을 유지해요.',mode:'core'};return {status:'current',message:'이번 업데이트를 취소하고 이전 버전을 유지해요.',installation:installation(),failure:failure()};}
     if(action==='retry-core'){
      await updates.check();const core=updates.selectedCore();
@@ -174,15 +232,16 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    return undefined;
   });
   ipcMain.on('options',(e,p)=>{if(trusted(e)&&e.sender===remote?.webContents)apply(p);});
-  ipcMain.on('hover',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'&&!moving&&!carried)win.setIgnoreMouseEvents(!(options.grabEnabled&&on===true),{forward:true});});
+  ipcMain.on('hover',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'&&!moving&&!carried)win.setIgnoreMouseEvents(!((options.grabEnabled||options.petting)&&on===true&&petPointerVisible()),{forward:true});});
+  ipcMain.on('stroke',e=>{const now=Date.now();if(trusted(e)&&e.sender===win.webContents&&options.petting&&!paused&&!moving&&!carried&&['normal','inside-window'].includes(desktopWorld.mode)&&now-lastPetting>1200){lastPetting=now;pettingUntil=now+1600;send();}});
   ipcMain.on('carry',(e,on)=>{if(!quitting&&!win.isDestroyed()&&trusted(e)&&e.sender===win.webContents&&typeof on==='boolean'){if(on===true)startCarry();else finishCarry();}});
-  ipcMain.on('command',(e,c)=>{if(!trusted(e)||typeof c!=='string'||(e.sender===win.webContents&&c!=='lock'))return;switch(c){case 'input-diagnostics':diagnosticReport=inputReport();send();break;case 'copy-diagnostics':diagnosticReport=inputReport();clipboard.writeText(diagnosticReport);send();break;case 'toggle-pet':togglePet();break;case 'move':setMoving(!moving);break;case 'lock':setMoving(false);save();break;case 'pause':togglePause();break;case 'center':center();break;case 'reconnect':stopInput();startInput();send();break;case 'input-settings':if(process.platform==='darwin')void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent').catch(()=>{hookError='입력 권한 설정을 열지 못했습니다';send();});break;case 'hide':remote?.close();break;case 'quit':app.quit();break;case 'remote':void openRemote();}});
+  ipcMain.on('command',(e,c)=>{if(!trusted(e)||typeof c!=='string'||(e.sender===win.webContents&&c!=='lock'))return;switch(c){case 'cancel-permission-update':if(corePermissionWait&&supervised)process.send?.({type:'core-cancel-permission'});break;case 'input-diagnostics':diagnosticReport=inputReport();send();break;case 'copy-diagnostics':diagnosticReport=inputReport();clipboard.writeText(diagnosticReport);send();break;case 'toggle-pet':togglePet();break;case 'move':setMoving(!moving);break;case 'lock':setMoving(false);save();break;case 'pause':togglePause();break;case 'center':center();break;case 'reconnect':stopInput();startInput();send();break;case 'input-settings':if(process.platform==='darwin')void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent').catch(()=>{hookError='입력 권한 설정을 열지 못했습니다';send();});break;case 'hide':remote?.close();break;case 'quit':app.quit();break;case 'remote':void openRemote();}});
   await win.loadFile(path.join(__dirname,'../dist/index.html'));
-  tray=new Tray(nativeImage.createFromPath(path.join(__dirname,'../dist/sprites/IDLE-0.png')).resize({width:32,height:32}));tray.setToolTip('Keyboard Cat · 리모컨');tray.on('double-click',()=>{void openRemote();});refresh();
+  trayBase=nativeImage.createFromPath(path.join(__dirname,'../dist/sprites/IDLE-0.png')).resize({width:32,height:32});trayBadge=trayBase;try{const badge=nativeImage.createFromBitmap(updateBadgeBitmap(trayBase.toBitmap(),32,32),{width:32,height:32,scaleFactor:1});if(!badge.isEmpty())trayBadge=badge;}catch{/* Keep the base icon on unsupported native bitmap layouts. */}tray=new Tray(trayBase);tray.setToolTip('Keyboard Cat · 리모컨');tray.on('double-click',()=>{void openRemote();});refresh();if(!smoke)updateChecks.start();
   win.on('close',e=>{if(!quitting){e.preventDefault();setMoving(false);}});
-  let previousWindowX=win.getPosition()[0];win.on('moved',()=>{const x=win.getPosition()[0];if(moving){direction=facingForDelta(direction,x-previousWindowX);send();if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}previousWindowX=x;});win.showInactive();startInput();
-  powerMonitor.on('suspend',()=>{suspended=true;finishCarry();stopInput();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{suspended=false;lastHit=Date.now();startInput(false);});
-  const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&now-lastHit<30000){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+(options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):direction*3);if(nx<a.x||nx+320>a.x+a.width){direction*=-1;monkeyWalk.reset();penguinWalk.reset();nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}else{monkeyWalk.reset();penguinWalk.reset();}send();},100);
+  let previousWindowX=win.getPosition()[0];win.on('moved',()=>{const x=win.getPosition()[0];if(moving){direction=facingForDelta(direction,x-previousWindowX);send();if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}previousWindowX=x;});win.showInactive();startInput();syncDesktop();if(process.platform==='win32'&&options.behindWindows)desktopWorld.dropToFloor(Date.now());
+  powerMonitor.on('suspend',()=>{updateChecks.stop();suspended=true;finishCarry();stopInput();syncDesktop();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{if(!smoke)updateChecks.start();suspended=false;lastHit=Date.now();startInput(false);syncDesktop();});
+  const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);let travel=0;if(options.wander&&!paused&&!moving&&!carried&&now-lastHit>4000&&awakeForMovement(options.autoSleep,now-lastHit)&&now>=pettingUntil&&now>=environmentLandingUntil)travel=options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):direction*3;else{monkeyWalk.reset();penguinWalk.reset();}const handled=desktopMotionTimer?(queuedDesktopTravel+=travel,true):desktopStep(now,travel);if(!handled&&travel){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+travel;if(nx<a.x||nx+320>a.x+a.width){direction*=-1;monkeyWalk.reset();penguinWalk.reset();nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}desktopCadence();send();},100);
   if((updateRecovery&&existsSync(updateRecovery.root))||(managedUpdateFiles&&existsSync(managedUpdateFiles.record))){
    let attempts=0,checking=false;
    startupTimer=setInterval(async()=>{
@@ -210,7 +269,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     try{const healthy=await win.webContents.executeJavaScript(`(()=>{const img=document.querySelector('.sprite img,.carry-image');return document.readyState==='complete'&&!!window.cat&&!!img&&img.complete&&img.naturalWidth>0;})()`);if(!quitting){process.send?.({type:'core-health',screen:healthy,input:inputMonitor.status});if(healthy&&inputMonitor.status==='ready'){process.send?.({type:'core-ready',screen:true,input:true});if(coreHealthTimer)clearInterval(coreHealthTimer);coreHealthTimer=undefined;}}}catch{}finally{checking=false;}
    },1000);
   }
-  app.on('before-quit',()=>{save();quitting=true;clearInterval(timer);if(coreHealthTimer)clearInterval(coreHealthTimer);if(startupTimer)clearInterval(startupTimer);stopCarry();if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
+  app.on('before-quit',()=>{updateChecks.stop();save();quitting=true;clearInterval(timer);if(coreHealthTimer)clearInterval(coreHealthTimer);if(startupTimer)clearInterval(startupTimer);stopCarry();desktopScene.stop();if(desktopMotionTimer)clearInterval(desktopMotionTimer);if(saveTimer)clearTimeout(saveTimer);stopInput();tray.destroy();});
+  if(physicalFolderTest){try{const result=await (await import('./physical-folder-smoke')).physicalFolderSmoke(win,apply,positionWindow,state,()=>desktopScene.scene,{writes:()=>nativePositionWrites,face:d=>{direction=d;lastHit=Date.now()-5000;},combo:()=>{const now=Date.now();combo.hit(now,10);effect=10;effectAt=now;lastHit=now;send();},scan:()=>desktopScene.start(true),hopping:()=>iconRoute.active});desktopScene.stop();console.log('PHYSICAL_FOLDER_OK '+JSON.stringify(result));app.exit(0);}catch(error){desktopScene.stop();console.error(error);app.exit(1);}return;}
+  if(interactionTest){try{clearInterval(timer);if(desktopMotionTimer)clearInterval(desktopMotionTimer);desktopMotionTimer=undefined;desktopScene.stop();await openRemote();const result=await (await import('./interaction-smoke')).interactionSmoke(win,remote!,state,apply);console.log('INTERACTION_SMOKE_OK '+JSON.stringify(result));app.exit(0);}catch(error){console.error(error);app.exit(1);}return;}
   if(smoke){try{
    if(process.platform==='win32'&&app.isPackaged){
     // Exercise physical ASAR backup inside Electron, not only Node unit tests.
@@ -305,7 +366,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-name-display='+${JSON.stringify(mode)}+']').click()`);await new Promise(r=>setTimeout(r,100));
     if(options.nameDisplay!==mode||JSON.parse(readFileSync(settingsPath(),'utf8')).options.nameDisplay!==mode)throw Error('Name display setting not saved');
     const selectedNameButton=await remote!.webContents.executeJavaScript(`document.querySelector('[data-name-display='+${JSON.stringify(mode)}+']').getAttribute('aria-pressed')`);if(selectedNameButton!=='true')throw Error('Name display button selection missing');
-    const visible=await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`);if(visible!==(mode==='always'))throw Error('Name visibility without hover failed');
+    const nameView=await win.webContents.executeJavaScript(`new Promise(resolve=>{const end=Date.now()+3000;const check=()=>{const p=document.querySelector('.pet'),mode=p?.dataset.nameMode;if(mode===${JSON.stringify(mode)})resolve({mode,visible:!!document.querySelector('.avatar-name')});else if(Date.now()>end)resolve({mode,timeout:true});else setTimeout(check,20);};check();})`) as {mode:string;visible?:boolean;timeout?:boolean};if(nameView.timeout||nameView.visible!==(mode==='always'))throw Error('Name visibility without hover failed '+JSON.stringify({expected:mode,...nameView}));
     await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);await new Promise(r=>setTimeout(r,70));
     const hoveredName=await win.webContents.executeJavaScript(`!!document.querySelector('.avatar-name')`);if(hoveredName!==(mode!=='hidden'))throw Error('Name visibility with hover failed');
     await win.webContents.executeJavaScript(`document.querySelector('.pet').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))`);await new Promise(r=>setTimeout(r,70));
@@ -316,7 +377,8 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    lastHit=Date.now()-31000;apply({sleepAnimation:true});
    const sleepOnResult=await waitSleep('frames'),sleepOn=sleepOnResult.animation;if(!sleepOnResult.ready)throw Error('Sleep animation switch failed');
    apply({sleepAnimation:false});
-   const sleepOffResult=await waitSleep('none'),sleepOff=sleepOffResult.animation;if(!sleepOffResult.ready)throw Error('Sleep animation did not stop');lastHit=Date.now();send();
+   const sleepOffResult=await waitSleep('none'),sleepOff=sleepOffResult.animation;if(!sleepOffResult.ready)throw Error('Sleep animation did not stop');
+   const awakePosition=win.getPosition();apply({autoSleep:false,wander:true});const awakeStart=win.getPosition()[0];await new Promise(r=>setTimeout(r,650));const sleepDisabledTravel=win.getPosition()[0]-awakeStart;if(!sleepDisabledTravel||state().action==='SLEEP')throw Error('Sleep-off must keep wandering after 30 seconds');apply({autoSleep:true,wander:false});positionWindow(awakePosition[0],awakePosition[1]);lastHit=Date.now();send();
    setMoving(true);setMoving(false);const before=stateMessages;await new Promise(r=>setTimeout(r,350));if(before!==stateMessages)throw Error('Redundant idle updates');
    const animation=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('img')).animationName`);if(animation!=='none')throw Error('Idle animation not stopped');
    const idleMessages=stateMessages-before;
@@ -335,7 +397,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    await win.webContents.executeJavaScript(`window.cat.carry(false)`);await new Promise(r=>setTimeout(r,500));if(carried||state().landing)throw Error('Carry release failed');
    for(const size of [.75,1,1.3]){apply({size});startCarry();await new Promise(r=>setTimeout(r,150));followCarry();finishCarry();if(carried||carryTimer)throw Error('Carry timer leaked');}
    apply({effects:true});landingUntil=0;
-   clearInterval(timer); // Keep explicit poses fixed while their textures load.
+   clearInterval(timer);if(desktopMotionTimer)clearInterval(desktopMotionTimer);desktopMotionTimer=undefined;desktopScene.stop(); // Keep explicit poses fixed while their textures load.
    const extraAnimations=[];
    for(const [testEffect,age,action,atlas] of [[10,100,'JUMP','JUMP'],[10,700,'FALL','FALL'],[10,1050,'LAND','LAND'],[20,100,'CLIMB_UP','CLIMB'],[20,1000,'CLIMB_DOWN','CLIMB'],[20,1700,'LAND','LAND']]){
     effect=Number(testEffect);effectAt=Date.now()-Number(age);const selectedAction=state().action;send();
@@ -438,7 +500,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    win.webContents.send('state',{...state(),action:'WALK',carried:false,animate:false});await new Promise(r=>setTimeout(r,500));
    const stopped=await win.webContents.executeJavaScript(`document.querySelector('.sprite img').dataset.frame`);if(stopped!=='0')throw Error('Dog stopped walk kept advancing');
    const stoppedSway=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.sprite')).animationName`);if(stoppedSway!=='none')throw Error('Stopped walking kept swaying');
-   for(const key of ['wander','effects','restAnimation','sleepAnimation','showCombo','grabEnabled','multiMonitor'] as const){
+   for(const key of ['wander','effects','restAnimation','autoSleep','sleepAnimation','showCombo','grabEnabled','multiMonitor'] as const){
     apply({[key]:false});await new Promise(r=>setTimeout(r,40));
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-option=${key}]').click()`);await new Promise(r=>setTimeout(r,50));
     if(!options[key])throw Error('Existing toggle did not turn on: '+key);
@@ -478,12 +540,12 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    // The separate paint probe still checks every available paint for blank images.
    const walkProbe=(prefix:string,multiplier:number)=>`new Promise(resolve=>{
     const duration=Number(document.querySelector('.sprite img').dataset.cycleDuration)*1000,start=performance.now(),seen=new Set(),changes=[];
-    let previous=-1,bad=0,finished=false;
+    let previous=-1,bad=0,finished=false,firstBad;
     const sample=()=>{const img=document.querySelector('.sprite img'),n=Number(img?.dataset.frame);
-     if(!img?.complete||img.naturalWidth!==100||!img.getAttribute('src').startsWith(${JSON.stringify(prefix)}))bad++;
+     if(!img?.complete||img.naturalWidth!==100||!img.getAttribute('src').startsWith(${JSON.stringify(prefix)})){bad++;firstBad??={src:img?.getAttribute('src'),action:document.querySelector('.pet')?.className,frame:n,at:performance.now()-start};}
      if(n!==previous){seen.add(n);changes.push(n);previous=n;}};
     const observer=new MutationObserver(sample);observer.observe(document.querySelector('.sprite'),{childList:true,subtree:true,attributes:true,attributeFilter:['src','data-frame']});
-    const check=()=>{if(finished)return;sample();if(performance.now()-start>duration*${multiplier}+200){finished=true;observer.disconnect();resolve({seen:[...seen],changes,bad,duration});}else requestAnimationFrame(check);};check();})`;
+    const check=()=>{if(finished)return;sample();if(performance.now()-start>duration*${multiplier}+200){finished=true;observer.disconnect();resolve({seen:[...seen],changes,bad,duration,firstBad});}else requestAnimationFrame(check);};check();})`;
    const monkeyReport=[],monkeyWalkReport=[];
    for(const breed of monkeyBreeds){
     await remote!.webContents.executeJavaScript(`document.querySelector('[data-pet=monkey]').click()`);await new Promise(r=>setTimeout(r,80));
@@ -532,7 +594,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,paintReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,penguinReport,monkeyReport,monkeyWalkReport,monkeyTravelReport,aspectReport,mouseSelection:true}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,paintReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,sleepDisabledTravel,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,penguinReport,monkeyReport,monkeyWalkReport,monkeyTravelReport,aspectReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

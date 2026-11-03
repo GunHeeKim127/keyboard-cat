@@ -1,5 +1,5 @@
 // The controller does not display per-keystroke or animation state.
-const controllerKeys=['buildLabel','diagnosticReport','version','platform','inputReady','options','paused','moving','hookError'] as const;
+const controllerKeys=['updateAvailable','buildLabel','diagnosticReport','corePermissionWait','desktopStatus','desktopMode','version','platform','inputReady','options','paused','moving','hookError'] as const;
 export class StateDelivery<T extends Record<string,unknown>> {
  private previous:T|undefined;
  constructor(private controller=false){}

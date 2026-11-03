@@ -8,6 +8,7 @@ test('equivalent settings reuse identity to avoid disk writes and tray rebuilds'
 });
 test('toggles remain independent and reject invalid payloads',()=>{const o=updateOptions(presets.high,{wander:false,fps:999,size:999,effects:'false'});assert.equal(o.wander,false);assert.equal(o.effects,true);assert.equal(o.fps,12);assert.equal(o.size,1.3);assert.equal(o.quality,'custom');assert.deepEqual(updateOptions(o,null),o);});
 test('sleep animation can be enabled without idle animation or effects',()=>{const o=updateOptions(presets.low,{sleepAnimation:true});assert.equal(o.sleepAnimation,true);assert.equal(o.restAnimation,false);assert.equal(o.effects,false);});
+test('automatic sleep can be disabled independently and stays off across quality changes',()=>{const o=updateOptions(presets.low,{autoSleep:false});assert.equal(o.autoSleep,false);assert.equal(o.wander,false);assert.equal(o.sleepAnimation,false);assert.equal(updateOptions(o,{preset:'high'}).autoSleep,false);assert.equal(updateOptions(presets.low,JSON.parse(JSON.stringify(o))).autoSleep,false);assert.equal(updateOptions(o,{autoSleep:'false'}),o);});
 test('avatar name persists through quality changes without changing the quality itself',()=>{
  const named=updateOptions(presets.low,{avatarName:'  나비 🐈  '});assert.equal(named.avatarName,'나비 🐈');assert.equal(named.quality,'low');
  assert.equal(updateOptions(named,{preset:'high'}).avatarName,'나비 🐈');

@@ -57,21 +57,21 @@ export function fetchLatestRelease():Promise<unknown>{
 }
 export class UpdateChecker{
  private result:UpdateInfo|undefined;private release:Release|null=null;private checked=0;private pending:Promise<UpdateInfo>|undefined;
- constructor(private current:string,private platform:string,private arch:string,private portable:boolean,private fetchRelease=fetchLatestRelease,private open:(url:string)=>Promise<void>=async()=>{}){}
+ constructor(private current:string,private platform:string,private arch:string,private portable:boolean,private fetchRelease=fetchLatestRelease,private open:(url:string)=>Promise<void>=async()=>{},private now=Date.now){}
+ status():UpdateInfo{return this.result??{status:'current',message:''};}
  selectedInstaller(){return this.result?.status==='available'&&this.release?.download?{version:this.release.version,asset:decodeURIComponent(new URL(this.release.download).pathname.split('/').pop()!)}:undefined;}
  selectedCore(){return this.result?.status==='available'?this.release?.core:undefined;}
  check():Promise<UpdateInfo>{
   if(this.pending)return this.pending;
-  if(this.result&&Date.now()-this.checked<60000)return Promise.resolve(this.result);
+  if(this.result&&this.now()-this.checked<60000)return Promise.resolve(this.result);
   this.pending=this.perform().finally(()=>{this.pending=undefined;});return this.pending;
  }
  private async perform():Promise<UpdateInfo>{
-  this.release=null;
   try{
    const raw=await this.fetchRelease(),r=parseRelease(raw,this.platform,this.arch,this.portable);this.release=r;
    this.result=!r?{status:'empty',message:'아직 확인할 수 있는 정식 릴리스가 없어요.'}:newerVersion(r.version,this.current)?{status:'available',version:r.version,notes:r.notes,downloadReady:!!(r.download||r.core),coreReady:!!r.core,message:r.download||r.core?'새 버전을 다운로드할 수 있어요.':'새 버전이 있지만 이 PC용 파일이 아직 없어요. 릴리스 내용을 확인해 주세요.'}:{status:'current',message:'현재 버전보다 새로운 정식 릴리스가 없어요.'};
-  }catch{this.result={status:'error',message:'업데이트를 확인하지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 눌러 주세요.'};}
-  this.checked=Date.now();return this.result;
+  }catch{if(this.result?.status!=='available')this.result={status:'error',message:'업데이트를 확인하지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 눌러 주세요.'};}
+  this.checked=this.now();return this.result;
  }
  async download(){if(this.result?.status!=='available'||!this.release?.download)return false;await this.open(this.release.download);return true;}
  async openNotes(){await this.open(this.release?.page??releasesURL);return true;}

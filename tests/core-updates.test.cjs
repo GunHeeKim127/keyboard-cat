@@ -3,6 +3,9 @@ const {CoreStore,coreSigningData,signedCore,fileHash}=require('../dist-electron/
 const {CoreUpdater}=require('../dist-electron/core-updater');
 const {CoreSupervisor}=require('../dist-electron/core-supervisor');
 const {parseRelease}=require('../dist-electron/updates');
+test('launcher forwards its exact user profile to the core worker',()=>{
+ const {coreWorkerArguments}=require('../dist-electron/launcher-policy'),profile=path.resolve('work/한글 profile');assert.deepEqual(coreWorkerArguments(profile),['--keyboard-cat-core-worker','--user-data-dir='+profile]);for(const invalid of ['relative','bad\0path',''])assert.throws(()=>coreWorkerArguments(invalid));
+});
 function fixture(t,platform='win32'){
  const dir=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'keyboard-cat-core-')));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const keys=crypto.generateKeyPairSync('ed25519'),pub=keys.publicKey.export({type:'spki',format:'pem'}),runtime={electron:'42.0.0',platform,arch:'x64',engineSha256:'a'.repeat(64),nativeSha256:'b'.repeat(64)},store=new CoreStore(dir,'2.1.1',runtime,pub);store.prepare();
@@ -41,6 +44,36 @@ test('authenticated incompatible runtime falls back without fetching payload',as
  const f=fixture(t),a=f.make('2.1.2',undefined,{runtime:{...f.runtime,electron:'43.0.0'}});let downloads=0;const manifest=Buffer.from(JSON.stringify(a.m)),updater=new CoreUpdater(f.store,()=>assert.fail('switch'),async(_,file)=>{downloads++;fs.writeFileSync(file,manifest);});assert.equal(await updater.update({version:a.m.version,manifest:{size:manifest.length},archive:{sha256:a.m.sha256,size:a.m.size}},()=>assert.fail('save')),'fallback');assert.equal(downloads,1);
 });
 class Child extends EventEmitter{connected=true;killed=0;sent=[];send(m,cb){this.sent.push(m);cb?.();}kill(){this.killed++;setImmediate(()=>this.emit('exit',1));}}
+
+test('Mac permission wait survives the old deadline without promoting or losing rollback files',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const f=fixture(t,'darwin'),a=f.put(f.make());f.store.stage(a);const child=new Child();
+ const supervisor=new CoreSupervisor(f.store,()=>child,()=>{},()=>assert.fail('launch'),60000,'darwin');supervisor.start();t.after(()=>supervisor.stop());
+ for(let i=0;i<18;i++){child.emit('message',{type:'core-health',screen:true,input:i%2?'starting':'permission'});t.mock.timers.tick(10000);}
+ assert.equal(child.killed,0);assert.equal(f.store.active(),undefined);assert(fs.existsSync(f.store.file(a)));
+ assert.equal(child.sent.filter(m=>m.type==='core-permission-wait').length,1);
+ child.emit('message',{type:'core-ready',screen:true,input:true});assert.equal(f.store.active().version,a.version);assert.equal(f.store.failure(),undefined);
+ t.mock.timers.tick(120000);assert.equal(child.killed,0);assert(child.sent.some(m=>m.type==='core-confirmed'));
+});
+test('permission wait retains a watchdog for a missing or broken Mac screen',t=>{
+ for(const broken of [false,true]){
+  t.mock.timers.enable({apis:['setTimeout']});const f=fixture(t,'darwin'),a=f.put(f.make());f.store.stage(a);const child=new Child();
+  const supervisor=new CoreSupervisor(f.store,()=>child,()=>{},()=>assert.fail('launch'),60000,'darwin');supervisor.start();
+  child.emit('message',{type:'core-health',screen:true,input:'permission'});
+  if(broken)for(let i=0;i<5;i++){child.emit('message',{type:'core-health',screen:false,input:'permission'});t.mock.timers.tick(10000);}
+  t.mock.timers.tick(60001);assert.equal(child.killed,1);supervisor.stop();t.mock.timers.reset();
+ }
+});
+test('Mac user cancellation restores previous core and records explicit cancellation',async t=>{
+ const f=fixture(t,'darwin'),a=f.put(f.make());f.store.stage(a);const children=[];
+ const supervisor=new CoreSupervisor(f.store,()=>{const c=new Child();children.push(c);return c;},()=>{},()=>assert.fail('launch'),60000,'darwin');supervisor.start();t.after(()=>supervisor.stop());
+ children[0].emit('message',{type:'core-health',screen:true,input:'permission'});children[0].emit('message',{type:'core-cancel-permission'});
+ await new Promise(r=>setImmediate(r));assert.equal(children.length,2);assert.equal(f.store.active(),undefined);assert.equal(f.store.failure().code,'permission');assert.equal(f.store.failure().cancelled,true);assert(!fs.existsSync(f.store.file(a)));
+});
+test('Windows cannot bypass readiness using Mac permission-wait messages',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const f=fixture(t),a=f.put(f.make());f.store.stage(a);const child=new Child();
+ const supervisor=new CoreSupervisor(f.store,()=>child,()=>{},()=>assert.fail('launch'),60000,'win32');supervisor.start();t.after(()=>supervisor.stop());child.emit('message',{type:'core-health',screen:true,input:'permission'});t.mock.timers.tick(60001);assert.equal(child.killed,1);assert.equal(child.sent.length,0);
+});
 test('supervisor requires screen and input readiness; failed child rolls back without loops',async t=>{
  const f=fixture(t),a=f.put(f.make());f.store.stage(a);const children=[];let rollbackDone;const rolledBack=new Promise(resolve=>{rollbackDone=resolve;});let stopped=0;const supervisor=new CoreSupervisor(f.store,(m,rollback)=>{const child=new Child();children.push({child,m,rollback});if(children.length===2)rollbackDone();return child;},()=>stopped++,()=>assert.fail('error'),25);supervisor.start();
  children[0].child.emit('message',{type:'core-ready',screen:true,input:false});assert.equal(f.store.active(),undefined);let deadline;try{await Promise.race([rolledBack,new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('Rollback event not received')),3000);})]);}finally{clearTimeout(deadline);}assert.equal(children.length,2);assert.equal(children[1].rollback,true);assert.equal(children[1].m,undefined);assert.equal(f.store.candidate(),undefined);supervisor.stop();assert.equal(children[1].child.sent[0].type,'core-quit');children[1].child.emit('exit',0);assert.equal(stopped,1);

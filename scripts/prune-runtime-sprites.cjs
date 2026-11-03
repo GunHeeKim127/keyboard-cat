@@ -15,6 +15,10 @@ function runtimeSprites(){
  for(const breed of parrots.parrotBreeds)add('parrot','chihuahua','original',breed,'capuchin',parrots.parrotFrames,false);
  for(const breed of monkeys.monkeyBreeds)add('monkey','chihuahua','original','cockatoo',breed,monkeys.monkeyFrames,false);
  for(const breed of penguins.penguinBreeds)add('penguin','chihuahua','original','cockatoo','capuchin',penguins.penguinFrames,false,breed);
+ const catalog=require('../assets/interactions/catalog.json');for(const breeds of Object.values(catalog))for(const [pet,breed] of breeds)for(const action of ['ENTER_FOLDER','EXIT_CLOSED_FOLDER','EXIT_WINDOW','PETTED'])for(let i=0;i<4;i++)required.add(`interaction-${pet}-${breed}-${action}-frame-${i}.png`);
+ for(const breeds of Object.values(catalog))for(const [pet,breed] of breeds)for(const action of ['FALL_GROUND','LAND_GROUND'])for(let i=0;i<(action==='LAND_GROUND'?2:4);i++)required.add(`interaction-${pet}-${breed}-${action}-frame-${i}.png`);
+ for(const [pet,breed] of catalog.penguin)for(const action of ['WINDOW_LOOK','HOP'])for(let i=0;i<8;i++)required.add(`interaction-${pet}-${breed}-${action}-frame-${i}.png`);
+ for(const [pet,breed] of catalog.parrot)for(let i=0;i<16;i++)required.add(`interaction-${pet}-${breed}-EDGE_CLIMB-frame-${i}.png`);
  return required;
 }
 function knownUnused(name){return /^(?:dog|cat|parrot|monkey|penguin)-[a-z-]+-[A-Z]+-atlas\.png$/.test(name)||/^(?:IDLE|WALK|JUMP|DASH|ATTACK|SLEEP|FALL|LAND|CLIMB)-\d+\.png$/.test(name)||['source.png','carry-source.png','frames.json','carry-prompt.txt'].includes(name);}

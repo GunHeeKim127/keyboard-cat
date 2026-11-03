@@ -2,6 +2,10 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const {newerVersion,parseRelease,UpdateChecker,releasesURL}=require('../dist-electron/updates');
 const asset=(name,tag='v1.3.11')=>({name,state:'uploaded',size:100,browser_download_url:`${releasesURL}/download/${tag}/${encodeURIComponent(name)}`});
 const release=(assets=[])=>({draft:false,prerelease:false,tag_name:'v1.3.11',body:'<script>never execute</script>\n업데이트',assets});
+test('cached update status is read without network and an offline recheck retains a known newer release',async()=>{
+ let count=0,time=1000;const checker=new UpdateChecker('1.3.10','win32','x64',true,async()=>{if(count++)throw Error('offline');return release([asset('Keyboard Cat 1.3.11.exe')]);},undefined,()=>time);
+ assert.equal(checker.status().status,'current');assert.equal(count,0);await checker.check();assert.equal(checker.status().status,'available');for(let i=0;i<100;i++)checker.status();assert.equal(count,1);time+=61000;await checker.check();assert.equal(checker.status().status,'available');assert(checker.selectedInstaller());
+});
 test('update versions compare numeric components and reject pre-release, malformed tags and downgrades',()=>{
  assert.equal(newerVersion('v1.3.10','1.3.9'),true);assert.equal(newerVersion('v2.0.0','1.99.99'),true);
  for(const value of ['v1.3.9','v1.3.10','v1.3.11-beta','../1.3.11','1.03.11','1.3.999999999999999999999'])assert.equal(newerVersion(value,'1.3.10'),false);

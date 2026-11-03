@@ -2,7 +2,7 @@ name: Verify launcher v2
 run-name: Launcher v2 verification - ${{ github.sha }}
 on:
   push:
-    branches: ['codex/launcher-2.1.1', 'codex/flicker-2.1.2', 'codex/monkeys-2.2.0', 'codex/monkey-motion-2.2.1', 'codex/monkey-walk-2.2.2', 'codex/penguins-2.3.0']
+    branches: ['codex/launcher-2.1.1', 'codex/flicker-2.1.2', 'codex/monkeys-2.2.0', 'codex/monkey-motion-2.2.1', 'codex/monkey-walk-2.2.2', 'codex/penguins-2.3.0', 'codex/desktop-2.4.0']
   workflow_dispatch:
 permissions:
   contents: read
@@ -41,12 +41,19 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Verify all runtime and build dependencies against security advisories
+        run: npm audit --audit-level=low --registry=https://registry.npmjs.org
       - run: npm run build
       - run: npm test
       - run: node scripts/check-native.cjs
+      - name: Verify readable and locked directory eligibility without reading contents
+        if: matrix.platform == 'win32'
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-folder-access.ps1
       - run: ${{ matrix.build }}
       - name: Test real packaged application and all existing pets
         run: node scripts/run-packaged-smoke.cjs "${{ matrix.app }}"
+      - name: Test new interactions, hidden folder combo, petting and permission wait UI
+        run: node scripts/run-interaction-smoke.cjs "${{ matrix.app }}"
       - name: Test real launcher processes, promotion, crash, permission and interruption rollback
         run: node scripts/test-launcher-runtime.cjs "${{ matrix.app }}"
       - name: Preserve verification reports

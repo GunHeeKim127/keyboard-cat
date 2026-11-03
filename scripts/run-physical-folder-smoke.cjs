@@ -1,0 +1,7 @@
+const fs=require('fs'),path=require('path'),{spawn}=require('child_process');
+if(process.platform!=='win32')throw Error('Windows physical test only');
+const root=path.resolve(process.argv[2]),exe=path.join(root,'Keyboard Cat.exe');fs.mkdirSync('work/launcher-reports',{recursive:true});let report='';
+const log=fs.createWriteStream('work/launcher-reports/folder-physical.log'),p=spawn(exe,['--physical-folder-smoke'],{windowsHide:true,stdio:['ignore','pipe','pipe']});
+p.stdout.on('data',d=>{report+=d;log.write(d)});p.stderr.on('data',d=>log.write(d));const timer=setTimeout(()=>{p.kill();process.exitCode=1;console.error('Physical folder test timed out')},90000);
+const perf=spawn('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File','scripts/sample-preview-performance.ps1','-Root',root],{windowsHide:true,stdio:['ignore','pipe','pipe']});let performance='';perf.stdout.on('data',d=>performance+=d);perf.stderr.on('data',d=>log.write(d));perf.on('exit',code=>{if(code===0){fs.writeFileSync('work/launcher-reports/motion-performance.json',performance);console.log('Motion CPU sample saved');}});
+p.on('error',e=>{clearTimeout(timer);log.end();console.error(e.message);process.exitCode=1});p.on('exit',code=>{clearTimeout(timer);log.end();if(code!==0||!report.includes('PHYSICAL_FOLDER_OK ')){console.error('Physical test failed '+code);process.exitCode=1}else console.log(report.trim());});

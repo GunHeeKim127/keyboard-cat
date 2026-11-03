@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('cat',{
  command:(value:string)=>ipcRenderer.send('command',value),
  options:(value:unknown)=>ipcRenderer.send('options',value),
  hover:(value:boolean)=>ipcRenderer.send('hover',value),
+ stroke:()=>ipcRenderer.send('stroke'),
  carry:(value:boolean)=>ipcRenderer.send('carry',value)
 });

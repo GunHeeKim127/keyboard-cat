@@ -64,3 +64,16 @@
 /* Penguins use complete painted poses, with no added limb/body transforms. */
 [data-pet-kind="penguin"] .pet,[data-pet-kind="penguin"] .pet .sprite {animation:none;}
 [data-pet-kind="penguin"] .pet.walk .sprite {animation:none;}
+
+.pet-slot{display:contents}main[data-desktop-mode="inside-closed"] .combo{top:130px}main[data-desktop-mode="inside-closed"] .burst{top:105px}.combo.folder-locator{background:#172236ed;border:1px solid #84d8ff80;border-radius:8px;padding:6px 10px;pointer-events:none}.combo.folder-locator span{letter-spacing:0}.desktop-settings{border:1px solid #34435c;border-radius:10px;padding:10px;margin:12px 0}.desktop-settings .toggles{margin-top:8px}.desktop-settings input:disabled{opacity:.4}.pet.enter_folder,.pet.exit_closed_folder,.pet.exit_window,.pet.petted,.pet.edge_climb,.pet.env_fall{animation:none}.pet.petted{cursor:grab}
+
+.pet.icon_hop,.pet.fall_ground,.pet.land_ground{animation:none}
+
+/* Rotate the complete existing body, never detached limbs. Facing mirrors the wall side. */
+.pet.edge_climb{animation:none!important}.pet.edge_climb .sprite{transform:rotate(-90deg);transform-origin:center}
+
+.pet.edge_mount{animation:none!important}
+
+main[data-pet-kind="parrot"] .pet.edge_climb .sprite{transform:none}
+
+.update-badge{width:100%;margin:0 0 12px;padding:10px;border:1px solid #68b9ed;border-radius:10px;background:#153955;color:#d5f1ff;font-weight:700;cursor:pointer}

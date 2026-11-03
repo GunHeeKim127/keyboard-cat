@@ -15,7 +15,7 @@ export const StableSpriteImage=React.memo(function StableSpriteImage(props:Props
    if(!old||old.className!==props.className)image.className=props.className??'';
    if(!old||old.draggable!==props.draggable)image.draggable=props.draggable??false;
    if(!old)image.alt='';
-   if(!old||old.style.width!==props.style.width||old.style.animation!==props.style.animation)Object.assign(image.style,props.style);
+   if(!old||old.style.width!==props.style.width||old.style.animation!==props.style.animation||old.style.transform!==props.style.transform)Object.assign(image.style,props.style);
    for(const name of ['data-frame','data-frame-count','data-cycle-duration','data-playing','data-reverse'] as const)if(!old||old[name]!==props[name])image.setAttribute(name,String(props[name]));
    applied.set(image,props);
    if(host.current.firstChild!==image)host.current.replaceChildren(image);

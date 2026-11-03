@@ -9,6 +9,9 @@ export function coreRuntime(executable:string,resources:string,platform:string,a
  // macOS re-signs Mach-O files during packaging; its bundle signature and input
  // startup check protect the helper. Windows packaging leaves this binary intact.
  if(platform==='win32'&&fileHash(helper)!==host.helperBinarySha256)throw Error('Installed helper changed');
- const engine= createHash('sha256').update(JSON.stringify(['keyboard-cat-core',1,electron,platform,arch])).digest('hex');
+ if(platform==='win32'&&host.sceneBinarySha256&&(!/^[a-f0-9]{64}$/.test(host.sceneBinarySha256)||fileHash(path.join(resources,'DesktopScene.exe'))!==host.sceneBinarySha256))throw Error('Installed scene helper changed');
+ // Protocol 2 adds permission-wait/cancel handling in the installed launcher.
+ // Older launchers must receive a full app replacement, not a worker-only fix.
+ const engine= createHash('sha256').update(JSON.stringify(['keyboard-cat-core',2,electron,platform,arch])).digest('hex');
  return {electron,platform,arch,engineSha256:engine,nativeSha256:host.nativeRevision};
 }

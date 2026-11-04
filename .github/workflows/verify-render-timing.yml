@@ -1,5 +1,8 @@
 name: Compare render and input timing
 on:
+  push:
+    branches: ['codex/mac-desktop-review']
+    paths: ['.github/workflows/verify-render-timing.yml', 'electron/render-diagnostics.ts', 'scripts/run-render-diagnostics.cjs']
   workflow_dispatch:
 permissions:
   contents: read

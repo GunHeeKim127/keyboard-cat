@@ -1,3 +1,5 @@
+> 최신 2.5.0: [다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.0). M 계열은 mac-arm64.dmg, Intel은 mac-x64.dmg입니다. 새 보조 프로그램 때문에 이번에는 앱 종료 후 응용 프로그램의 앱을 대치해야 합니다. 설정·캐시는 지우지 마세요. 창·폴더 놀이는 초기 지원이며 입력 모니터링과 Finder용 손쉬운 사용·바탕화면 접근 허용은 별도입니다. 실제 Finder·권한 변경·물리 입력은 담당자 실기 확인 항목입니다.
+
 > 최신 2.4.1: [다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.1). M 계열은 mac-arm64.dmg, Intel은 mac-x64.dmg입니다. 2.4.0은 호환 기능 묶음 업데이트가 가능하며, 이전 Mac 런처는 앱을 종료하고 응용 프로그램에 새 앱을 대치하세요. OS 입력 권한을 우회하지 않습니다. 실제 Mac 키보드·한글 입력은 담당자 확인 항목입니다.
 
 > 2.4.0 정식 배포: 입력 권한 대기 중 이전 버전으로 돌아가던 런처를 수정했습니다. 한 번 전체 앱 교체가 필요합니다. M 계열은 mac-arm64.dmg, Intel은 mac-x64.dmg을 [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.0)에서 받으세요. 기존 앱을 종료하고 응용 프로그램에 대치한 뒤 그 위치에서 실행하세요. 권한 승인은 macOS 설정에서 확인해야 하며 앱이 우회하지 않습니다.

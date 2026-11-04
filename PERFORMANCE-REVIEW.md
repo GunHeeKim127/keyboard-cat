@@ -30,3 +30,7 @@ Windows 로컬 숨김·대기 검사도 P95 약 7ms로 유사했습니다. 모�
 [추가 비교 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41780324719)
 
 실제 Mac의 Finder 위치 인식·권한 변경·물리 입력·시작 직후 체감 반응은 담당자 실기 확인 항목입니다. 자동 검사 통과는 모든 지연이나 모든 보안 결함이 없음을 보증하지 않습니다.
+
+## 좌표 예외의 별도 근본 원인 수정
+
+사용자 스크린샷과 같은 positionWindow의 argument at index 0 예외는 JavaScript 음수 0을 Electron 네이티브 정수 인수로 전달할 때 실제 재현됐습니다. Math.round(-0.2)가 만드는 음수 0은 Number.isInteger로도 걸러지지 않습니다. 네이티브 경계와 모니터 제한 후 좌표를 일반 0으로 정규화했습니다. Windows·Mac M 계열·Intel의 실제 API에서 수정 전 거부와 수정 후 정상 이동을 확인했고 2.5.0 소스 6818aea에 반영했습니다. 이 예외 수정과 위의 초기 프레임 콜백 대기는 서로 다른 검사 항목입니다.

@@ -41,3 +41,11 @@
 입력 화면 갱신을 기존 주기에 합치고 변하지 않은 네이티브 좌표 변환을 재사용했습니다. 키 내용은 기록하지 않으며 Windows Raw Input·Mac listen-only 입력 방식을 유지합니다. 세 플랫폼 CI의 공식 npm HTTPS 취약점 검사, 전체 자동 검사, 패키지 보안·복구 검사와 별도 Mac 전달 파일 검사를 통과했습니다. 로컬 자동 검사 216개 통과. 최종 배포 묶음의 서명·해시·1703 PNG 일치와 Windows 백신 검사를 확인했습니다. 미공개 취약점 부재나 실제 외부 앱 입력 지연 해소를 보증하는 검사는 아닙니다. Mac ARM 화면 반영 지연 구간은 추가 실기 확인 대상입니다.
 
 소스 0967930762b1dd4f0613d3d0e79034759dbe48fc. [빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41637687182), [Mac 전달 파일 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41741093640), [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.4.1).
+
+## 2.5.0 배포 확인 (2026-11-04)
+
+Mac 위치 수집 보조 프로그램은 창 위치와 Finder 최상위 바탕화면 메타데이터를 읽습니다. 파일 내용·창 제목을 읽거나 변경하지 않고, Apple Events·화면 캡처·입력 주입·접근성 쓰기를 하지 않습니다. 파일 항목 512개, 접근성 탐색 개수·시간 제한과 캐시를 사용합니다. 잠긴 폴더·심볼릭 링크·확인 불가한 폴더는 출입 대상으로 사용하지 않습니다. OS 권한 DB·보안 설정은 변경하지 않습니다.
+
+공식 npm HTTPS 취약점 검사, 자동 검사 218개, Windows·Mac 두 종류의 패키지 보안·모션·업데이트 복구 및 실제 Mac 전달 파일 검사를 통과했습니다. 자체 서명·해시·1703 PNG 일치 및 Windows 최종 배포 폴더 백신 탐지 0건을 확인했습니다. 실제 Finder·사용자 권한 변경·물리 입력은 담당자 실기 확인 항목입니다. 초기 프레임 지연의 정확한 원인은 미확정이며 전면적인 성능·침투 테스트를 의미하지 않습니다.
+
+소스 6818aea87c5792cc86ccb7f3b89f9eed98b7ccd9. [최종 빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41810706770), [Mac 전달 파일 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41811770874), [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.0). Intel DMG의 임시 디스크 분리 실패 후보는 배포하지 않고 기존 기록을 보존한 채 새 검사 실행의 파일을 사용했습니다.

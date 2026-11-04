@@ -1,0 +1,27 @@
+name: Compare render and input timing
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/run-render-diagnostics.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: render-timing-${{ matrix.os }}
+          path: work/render-diagnostics/

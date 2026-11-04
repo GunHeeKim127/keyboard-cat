@@ -101,7 +101,7 @@ let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
 let installerGate:InstallerGate|undefined;
-const buildLabel='콤보 위치 고정 · 입력 부하 최적화';
+const buildLabel='Mac 창·폴더 초기 지원 · 위치 표시·전환 개선';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function updateChanged(){if(quitting)return;refresh();send();remote?.webContents.send('update-status');}
 const updateChecks=new PeriodicUpdateCheck(()=>updates.check(),updateChanged);

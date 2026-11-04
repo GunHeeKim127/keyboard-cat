@@ -82,8 +82,15 @@
         {
           "from": "native/KeyCounter-mac",
           "to": "MacOS/KeyCounter-mac"
+        },
+        {
+          "from": "native/DesktopScene-mac",
+          "to": "MacOS/DesktopScene-mac"
         }
-      ]
+      ],
+      "extendInfo": {
+        "NSDesktopFolderUsageDescription": "바탕화면 최상위 아이콘을 발판으로 이동하고 폴더 출입을 표시하기 위해 이름과 위치만 확인합니다. 파일 내용은 읽거나 변경하지 않습니다."
+      }
     },
     "publish": [
       {

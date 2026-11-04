@@ -4,6 +4,15 @@ const area={x:0,y:0,width:1200,height:900},body={x:0,y:0,width:80,height:100};
 const off={windowWalk:false,gravity:false,edgeClimb:false,folderPlay:false};
 function folderScene(){return {windows:[],folders:[{id:'DESKTOP/TOP',rect:{x:200,y:200,width:80,height:80}}],explorers:[],foldersAvailable:true};}
 const enterPoint={x:200,y:156};
+test('closed-folder label anchors to its actual icon at every pet scale and follows moved icons',()=>{
+ for(const size of [.75,1,1.3]){
+  const w=new DesktopWorld(),s=folderScene(),r=s.folders[0].rect,b={x:160-56*size,y:248-112*size,width:112*size,height:112*size};
+  let p=w.step({x:r.x+r.width/2-b.x-b.width/2,y:r.y+r.height*.7-b.y-b.height},b,area,{...off,folderPlay:true},s,1000,0);
+  p=w.step(p,b,area,{...off,folderPlay:true},s,2000,0);assert(p.hidden);assert.deepEqual(p.folderAnchor,{x:r.x+r.width/2,y:r.y+r.height/2});
+  s.folders[0].rect={...r,x:r.x+80,y:r.y+100};p=w.step(p,b,area,{...off,folderPlay:true},s,2100,0);
+  assert.deepEqual(p.folderAnchor,{x:r.x+80+r.width/2,y:r.y+100+r.height/2});
+ }
+});
 test('voluntary folder exit uses the nearby left edge without teleporting from the middle',()=>{
  const w=new DesktopWorld(),s=folderScene();let p=enter(w,s);s.windows=[{id:'10',rect:{x:100,y:80,width:700,height:600}}];s.explorers=[{windowId:'10',folderId:'DESKTOP/TOP'}];p=w.step(p,body,area,{...off,folderPlay:true},s,2200,0);p={...p,x:130};
  w.leaveFolder(2250);let next=w.step(p,body,area,{...off,folderPlay:true},s,2300,0);assert.equal(next.mode,'exit-approach');assert.equal(next.facing,-1);assert(next.x<=130&&next.x>120);assert(!next.hidden);

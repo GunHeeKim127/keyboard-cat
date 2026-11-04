@@ -2,6 +2,7 @@ const {spawn,spawnSync,execFileSync}=require('node:child_process');const path=re
 const exe=path.resolve(process.platform==='darwin'?'native/KeyCounter-mac':'native/KeyCounter.exe');
 execFileSync(exe,['--self-test'],{stdio:'inherit',windowsHide:true});
 if(process.platform==='darwin'){
+ require('./check-mac-scene.cjs');
  const probe=spawnSync(exe,[String(process.pid),'--no-prompt'],{encoding:'utf8',timeout:2000});
  const status=probe.stderr.includes('INPUT_READY')?'ready':probe.status===77&&probe.stderr.includes('PERMISSION_REQUIRED')?'permission-required':probe.status===78&&/EVENT_TAP_UNAVAILABLE|TAP_DISABLED|TAP_INVALID/.test(probe.stderr)?'tap-unavailable':'failed';
  console.log(JSON.stringify({noPromptProbe:status,physicalKeyTest:'manual'}));

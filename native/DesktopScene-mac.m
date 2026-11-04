@@ -104,6 +104,18 @@ int main(int argc,const char *argv[]){@autoreleasepool{
   if(![[NSFileManager defaultManager] createDirectoryAtPath:root withIntermediateDirectories:NO attributes:nil error:NULL])return 6;
   BOOL ok=enterable(root)&&symlink(root.fileSystemRepresentation,link.fileSystemRepresentation)==0&&!enterable(link);
   unlink(link.fileSystemRepresentation);rmdir(root.fileSystemRepresentation);if(!ok)return 7;
+  // Verify the real Quartz reader against our own temporary window, not a
+  // fabricated JSON snapshot. No Finder permission or other app is modified.
+  [NSApplication sharedApplication];[NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+  NSWindow *probe=[[NSWindow alloc] initWithContentRect:NSMakeRect(120,120,360,220) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+  probe.releasedWhenClosed=NO;[probe orderFrontRegardless];
+  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.15]];
+  NSString *identifier=[NSString stringWithFormat:@"%ld",(long)probe.windowNumber];BOOL visible=NO;
+  for(NSDictionary *item in snapshot(getppid(),NO)[@"windows"])if([item[@"id"] isEqualToString:identifier]){
+   NSDictionary *r=item[@"rect"];NSRect frame=probe.frame;double top=NSMaxY(NSScreen.screens.firstObject.frame)-NSMaxY(frame);
+   visible=fabs([r[@"x"] doubleValue]-frame.origin.x)<2&&fabs([r[@"y"] doubleValue]-top)<2&&fabs([r[@"width"] doubleValue]-frame.size.width)<2&&fabs([r[@"height"] doubleValue]-frame.size.height)<2;break;
+  }
+  [probe close];if(!visible)return 8;
   puts("MAC_SCENE_TEST_OK");return 0;
  }
  if(argc<3||argc>4)return 2;char *end=NULL;errno=0;long raw=strtol(argv[1],&end,10);if(errno||!end||*end||raw<=1||(long)(pid_t)raw!=raw)return 2;

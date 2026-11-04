@@ -23,6 +23,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node scripts/run-render-diagnostics.cjs
+      - run: node scripts/run-render-diagnostics.cjs reverse
+      - run: node scripts/run-render-diagnostics.cjs hidden
+      - run: node scripts/run-render-diagnostics.cjs warm
       - uses: actions/upload-artifact@v6
         if: always()
         with:

@@ -62,9 +62,9 @@ static NSDictionary *snapshot(pid_t excluded,BOOL includeFolders) {
   NSURL *desktop=[[NSFileManager defaultManager] URLForDirectory:NSDesktopDirectory inDomain:NSUserDomainMask appropriateForURL:nil create:NO error:NULL];
   NSString *root=desktop.path.stringByStandardizingPath;
   // Immediate desktop entries only; never read file contents or recurse into folders.
-  NSArray *entries=root?[[NSFileManager defaultManager] contentsOfDirectoryAtURL:desktop includingPropertiesForKeys:@[NSURLIsSymbolicLinkKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:NULL]:nil;
+  NSDirectoryEnumerator *entries=root?[[NSFileManager defaultManager] enumeratorAtURL:desktop includingPropertiesForKeys:@[NSURLIsSymbolicLinkKey] options:NSDirectoryEnumerationSkipsHiddenFiles|NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:^BOOL(NSURL *url,NSError *error){(void)url;(void)error;return NO;}]:nil;
   NSMutableDictionary *paths=[NSMutableDictionary dictionary];
-  for(NSURL *entry in entries){if(paths.count>=512)break;NSNumber *linked=nil;if(![entry getResourceValue:&linked forKey:NSURLIsSymbolicLinkKey error:NULL]||linked.boolValue)continue;paths[entry.path.stringByStandardizingPath]=entry;}
+  NSUInteger scanned=0;for(NSURL *entry in entries){if(++scanned>512)break;NSNumber *linked=nil;if(![entry getResourceValue:&linked forKey:NSURLIsSymbolicLinkKey error:NULL]||linked.boolValue)continue;NSString *key=entry.path.stringByStandardizingPath;if(key.length>4096||[key rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location!=NSNotFound)continue;paths[key]=entry;}
   AXUIElementRef finder=AXUIElementCreateApplication(finderPID);AXUIElementSetMessagingTimeout(finder,0.15);
   id roots=attribute(finder,kAXWindowsAttribute);
   NSMutableArray *queue=[NSMutableArray array];if([roots isKindOfClass:NSArray.class])[queue addObjectsFromArray:roots];

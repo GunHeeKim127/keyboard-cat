@@ -121,7 +121,7 @@ function countInput(n:number){if(paused||suspended||quitting)return;const now=Da
 const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),countInput,status=>{hookError=inputError(status);send();refresh();});
 function stopInput(){inputMonitor.stop();}
 function startInput(prompt=true){if(!paused&&!suspended&&!quitting&&!smoke)inputMonitor.start(prompt);}
-function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!pos||quitting||!win||win.isDestroyed())return false;const next=options.multiMonitor?pos:limitToArea(pos,options.size,screen.getPrimaryDisplay().workArea,carried);const [oldX,oldY]=win.getPosition();if(oldX!==next.x||oldY!==next.y){win.setPosition(next.x,next.y);nativePositionWrites++;}return true;}
+function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!pos||quitting||!win||win.isDestroyed())return false;const bounded=options.multiMonitor?pos:limitToArea(pos,options.size,screen.getPrimaryDisplay().workArea,carried),next=nativePosition(bounded.x,bounded.y);if(!next)return false;const [oldX,oldY]=win.getPosition();if(oldX!==next.x||oldY!==next.y){win.setPosition(next.x,next.y);nativePositionWrites++;}return true;}
 function enforceMonitor(){if(!options.multiMonitor&&!quitting&&win&&!win.isDestroyed()){const [x,y]=win.getPosition();positionWindow(x,y);}}
 function stopCarry(){carried=false;if(carryTimer)clearInterval(carryTimer);carryTimer=undefined;}
 let previousPointerX=0;
@@ -297,6 +297,13 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    if(nativeRejections.length!==5)throw Error('Native coordinate rejection changed');
    for(const y of [NaN,Infinity,'450',2147483648])if(positionWindow(640,y))throw Error('Invalid coordinate accepted');
    if(!positionWindow(640.25,353.2)||win.getPosition()[1]!==353)throw Error('Fractional coordinate not normalized');
+   let negativeZeroNativeRejected=false;try{win.setPosition(-0,200);}catch(e){negativeZeroNativeRejected=String(e).includes('argument at index 0');}
+   const zeroOptions=options;options={...options,multiMonitor:true};win.setPosition(0,200);const nativeZeroX=win.getPosition()[0];win.setPosition(120,0);const nativeZeroY=win.getPosition()[1];
+   for(const n of [-0,-.2,-Number.MIN_VALUE,0,.2]){
+    if(!positionWindow(120,200)||!positionWindow(n,200)||win.getPosition()[0]!==nativeZeroX)throw Error('Negative zero X normalization failed');
+    if(!positionWindow(120,200)||!positionWindow(120,n)||win.getPosition()[1]!==nativeZeroY)throw Error('Negative zero Y normalization failed');
+   }
+   options=zeroOptions;
    const original={...options};apply({preset:'low'});await openRemote();
    const petEvent={sender:win.webContents,senderFrame:win.webContents.mainFrame};
    const invalidEvents=[{sender:remote!.webContents,senderFrame:null},{sender:remote!.webContents,senderFrame:{url:remote!.webContents.getURL()}},petEvent];
@@ -601,7 +608,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    options=original;save();const alwaysOnTop=win.isAlwaysOnTop();
    const closedPanel=remote!.webContents;remote!.destroy();ipcMain.emit('options',{sender:closedPanel},{wander:true});
    startCarry();const queuedCarry=followCarry;const closedPet=win.webContents;win.destroy();queuedCarry();finishCarry();if(carried||carryTimer)throw Error('Destroyed window kept carry timer');ipcMain.emit('hover',{sender:closedPet},true);ipcMain.emit('carry',{sender:closedPet},false);
-   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,paintReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,sleepDisabledTravel,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,penguinReport,monkeyReport,monkeyWalkReport,monkeyTravelReport,aspectReport,mouseSelection:true}));app.exit(0);
+   console.log('SMOKE_OK '+JSON.stringify({report,panelReport,paintReport,updateHistoryReport,carryReport,left,right,sleepOn,sleepOff,sleepDisabledTravel,idleMessages,animation,alwaysOnTop,lateEventsIgnored:true,nativeRejections,negativeZeroNativeRejected,negativeZeroNormalized:true,carrySizes:[.75,1,1.3],destroyedCarryIgnored:true,extraAnimations,securityReport,monitorReport,dogReport,catReport,parrotReport,penguinReport,monkeyReport,monkeyWalkReport,monkeyTravelReport,aspectReport,mouseSelection:true}));app.exit(0);
   }catch(e){console.error(e);app.exit(1);}}else await openRemote();
  }).catch(e=>{dialog.showErrorBox('Keyboard Cat 실행 오류',String(e));app.exit(1);});
 }

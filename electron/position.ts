@@ -9,7 +9,9 @@ export function facingForDelta(previous:number,delta:number){return Math.abs(del
 // Electron coordinates are signed 32-bit integers, unlike TypeScript's number.
 export function nativePosition(x:unknown,y:unknown){
  if(typeof x!=='number'||typeof y!=='number'||!Number.isFinite(x)||!Number.isFinite(y))return;
- const point={x:Math.round(x),y:Math.round(y)};
+ // V8 represents -0 as a double, which Electron's native int converter rejects.
+ // Fractions crossing a monitor origin can round to -0 even though finite.
+ const point={x:Math.round(x)||0,y:Math.round(y)||0};
  if(point.x< -2147483648||point.x>2147483647||point.y< -2147483648||point.y>2147483647)return;
  return point;
 }

@@ -3,7 +3,7 @@ import {spawn,ChildProcess} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {Scene,emptyScene,parseScene,Rect,safeRect} from './desktop-world';
 // Native Electron Rectangle arguments require integers even on fractional DPI layouts.
-export function nativeSceneRect(r:Rect):Rect{if(!safeRect(r))throw new Error('Invalid scene rectangle');const x=Math.floor(r.x),y=Math.floor(r.y);return {x,y,width:Math.ceil(r.x+r.width)-x,height:Math.ceil(r.y+r.height)-y};}
+export function nativeSceneRect(r:Rect):Rect{if(!safeRect(r))throw new Error('Invalid scene rectangle');const x=Math.floor(r.x)||0,y=Math.floor(r.y)||0;return {x,y,width:Math.ceil(r.x+r.width)-x,height:Math.ceil(r.y+r.height)-y};}
 export class DesktopSceneMonitor{
  scene:Scene=emptyScene();status='꺼짐';private child?:ChildProcess;private watchdog?:ReturnType<typeof setInterval>;private last=0;private folders=false;
  private coordinates:SceneCoordinates;

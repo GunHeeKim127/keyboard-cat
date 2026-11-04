@@ -10,6 +10,13 @@ test('native coordinates round fractions and reject invalid values without coerc
  }
  assert.deepEqual(nativePosition(-2147483648,2147483647),{x:-2147483648,y:2147483647});
 });
+test('movement through zero never sends V8 negative zero to Electron native integer arguments',()=>{
+ const {nativePosition}=require('../dist-electron/position.js'),{nativeSceneRect}=require('../dist-electron/desktop-scene.js');
+ for(const n of [-0,-Number.MIN_VALUE,-.01,-.49,0,.01,.49]){
+  const p=nativePosition(n,n);assert.equal(p.x,0);assert.equal(p.y,0);assert(!Object.is(p.x,-0));assert(!Object.is(p.y,-0));
+ }
+ const rect=nativeSceneRect({x:-0,y:-0,width:40,height:50});assert(!Object.is(rect.x,-0));assert(!Object.is(rect.y,-0));
+});
 test('carry and drop coordinates stay native integers for all sizes and monitor edges',()=>{
  for(const size of [.75,1,1.3])for(const p of [{x:800,y:450},{x:-1910,y:-190},{x:1919,y:1079}]){
   for(const pos of [carryPosition(p,size),dropPosition(p,size,{x:-1920,y:-200,width:1920,height:1080})]){

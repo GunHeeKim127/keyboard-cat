@@ -1,3 +1,4 @@
+import {RandomSource,randomDuration,randomUnit,variedDuration} from './autonomy';
 export type Rect={x:number;y:number;width:number;height:number};
 export type Scene={windows:{id:string;rect:Rect}[];folders:{id:string;rect:Rect}[];icons?:{id:string;rect:Rect}[];explorers:{windowId:string;folderId:string}[];foldersAvailable:boolean};
 export type DesktopOptions={windowWalk:boolean;gravity:boolean;edgeClimb?:boolean;folderPlay:boolean;windowLook?:boolean;facing?:number;climbSpeed?:number;walkSpeed?:number;pet?:string;iconWalk?:boolean;behindWindows?:boolean};
@@ -20,34 +21,36 @@ export function parseScene(v:unknown):Scene|undefined{
 }
 export const emptyScene=():Scene=>({windows:[],folders:[],explorers:[],foldersAvailable:false});
 export class DesktopWorld{
- mode:WorldMode='normal';private since=0;private last=0;private vy=0;private folder?:{id:string;rect:Rect};private inside?:Rect;private insideWindowId?:string;private exitFacing?:number;private exitCursorX?:number;private exitStart?:{x:number;y:number};private edge?:{x:number;top:number;window?:string;facing:number;y:number;mount?:{x:number;y:number;since:number}};private cooldown=0;private support?:{id:string;rect:Rect};private forceFloor=false;
- private begin(mode:WorldMode,now:number){if(mode==='exit-approach'){this.exitCursorX=undefined;this.exitFacing=undefined;this.exitStart=undefined;}this.mode=mode;this.since=now;}
+ mode:WorldMode='normal';private since=0;private last=0;private vy=0;private folder?:{id:string;rect:Rect};private inside?:Rect;private insideWindowId?:string;private exitFacing?:number;private exitCursorX?:number;private exitStart?:{x:number;y:number};private edge?:{x:number;top:number;window?:string;facing:number;y:number;budget:number;mount?:{x:number;y:number;since:number}};private cooldown=0;private support?:{id:string;rect:Rect};private forceFloor=false;private duration=900;private folderEncounter='';
+ constructor(private random:RandomSource=Math.random){}
+ private begin(mode:WorldMode,now:number){if(mode==='exit-approach'){this.exitCursorX=undefined;this.exitFacing=undefined;this.exitStart=undefined;}this.duration=mode==='enter'||mode==='exit-closed'||mode==='exit-window'?randomDuration(600,1800,this.random):mode==='inside-closed'?variedDuration(12000,this.random):mode==='inside-window'?variedDuration(20000,this.random):mode==='look-window'?variedDuration(2400,this.random):mode==='mount'?randomDuration(400,800,this.random):0;this.mode=mode;this.since=now;}
  freeze(now:number){const elapsed=this.last?Math.max(0,now-this.last):0;this.last=now;if(this.since)this.since+=elapsed;if(this.cooldown)this.cooldown+=elapsed;if(this.edge?.mount)this.edge.mount.since+=elapsed;}
- reset(){this.edge=undefined;this.mode='normal';this.folder=undefined;this.inside=undefined;this.insideWindowId=undefined;this.exitCursorX=undefined;this.exitFacing=undefined;this.exitStart=undefined;this.support=undefined;this.vy=0;this.last=0;this.forceFloor=false;}
+ reset(){this.folderEncounter='';this.edge=undefined;this.mode='normal';this.folder=undefined;this.inside=undefined;this.insideWindowId=undefined;this.exitCursorX=undefined;this.exitFacing=undefined;this.exitStart=undefined;this.support=undefined;this.vy=0;this.last=0;this.forceFloor=false;}
  dropToFloor(now:number){if(this.folder)return;this.edge=undefined;this.support=undefined;this.forceFloor=true;this.vy=0;this.begin('fall',now);}
  get droppingToFloor(){return this.forceFloor;}
  get onSurface(){return !!this.support;}
+ detachSupport(){this.support=undefined;}
  pauseMotion(){if(!this.folder){this.edge=undefined;this.mode='normal';this.support=undefined;this.forceFloor=false;this.vy=0;}}
- leaveFolder(now:number){if(this.folder&&(this.mode==='enter'||this.mode==='inside-closed'||this.mode==='inside-window')){this.begin(this.mode==='inside-window'?'exit-approach':'exit-closed',now);this.cooldown=now+15000;}}
+ leaveFolder(now:number){if(this.folder&&(this.mode==='enter'||this.mode==='inside-closed'||this.mode==='inside-window')){this.begin(this.mode==='inside-window'?'exit-approach':'exit-closed',now);this.cooldown=now+variedDuration(15000,this.random);}}
  step(point:{x:number;y:number},body:Rect,area:Rect,o:DesktopOptions,scene:Scene,now:number,travel:number):WorldResult{
   const dt=this.last?clamp((now-this.last)/1000,0,.2):.1;this.last=now;let x=point.x,y=point.y,action='',hidden=false,landing=false,reverse=false;
   const foot=()=>({x:x+body.x+body.width/2,y:y+body.y+body.height});
-  if(!o.folderPlay)this.leaveFolder(now);
-  if(this.mode==='look-window'){if(!o.windowLook||o.behindWindows||now-this.since>=2400){this.begin('normal',now);this.cooldown=now+6000;return {x:Math.round(x),y:Math.round(y),action:'',hidden,landing,reverse:true,mode:this.mode};}return {x:Math.round(x),y:Math.round(y),action:'WINDOW_LOOK',hidden,landing,mode:this.mode};}
+  if(!o.folderPlay){this.folderEncounter='';this.leaveFolder(now);}
+  if(this.mode==='look-window'){if(!o.windowLook||o.behindWindows||now-this.since>=this.duration){this.begin('normal',now);this.cooldown=now+variedDuration(6000,this.random);return {x:Math.round(x),y:Math.round(y),action:'',hidden,landing,reverse:true,mode:this.mode};}return {x:Math.round(x),y:Math.round(y),action:'WINDOW_LOOK',hidden,landing,mode:this.mode};}
   const currentFolder=this.folder&&scene.folders.find(f=>f.id===this.folder!.id);
   if(currentFolder)this.folder={id:currentFolder.id,rect:{...currentFolder.rect}};
   const explorer=this.folder&&scene.explorers.find(e=>e.folderId===this.folder!.id);
   const folderWindow=explorer&&scene.windows.find(w=>w.id===explorer.windowId)?.rect;
   if(this.folder&&['enter','inside-closed','inside-window','exit-closed','exit-approach','exit-window'].includes(this.mode)){
    if(!currentFolder&&(this.mode==='enter'||this.mode==='inside-closed'||this.mode==='inside-window'))this.begin(this.mode==='inside-window'?'exit-approach':'exit-closed',now);
-   if(this.mode==='enter'&&now-this.since>=900)this.begin('inside-closed',now);
+   if(this.mode==='enter'&&now-this.since>=this.duration)this.begin('inside-closed',now);
    if(this.mode==='inside-closed'&&folderWindow){this.inside={...folderWindow};this.insideWindowId=explorer!.windowId;this.begin('inside-window',now);x=folderWindow.x+folderWindow.width/2-body.x-body.width/2;y=folderWindow.y+folderWindow.height-30-body.y-body.height;}
    if(this.mode==='inside-window'&&!folderWindow)this.begin('inside-closed',now);
-   if(this.mode==='inside-closed'&&(!currentFolder||now-this.since>12000))this.begin('exit-closed',now);
-   if(this.mode==='inside-window'&&now-this.since>20000)this.begin('exit-approach',now);
+   if(this.mode==='inside-closed'&&(!currentFolder||now-this.since>this.duration))this.begin('exit-closed',now);
+   if(this.mode==='inside-window'&&now-this.since>this.duration)this.begin('exit-approach',now);
    if(this.mode==='enter'||this.mode==='inside-closed'||this.mode==='exit-closed'){
     const r=this.folder.rect;x=r.x+r.width/2-body.x-body.width/2;y=r.y+r.height*.7-body.y-body.height;
-    const progress=clamp((now-this.since)/900,0,1);if(this.mode==='enter')x-=body.width*.4*(1-progress);if(this.mode==='exit-closed')x+=body.width*.4*progress;
+    const progress=clamp((now-this.since)/this.duration,0,1);if(this.mode==='enter')x-=body.width*.4*(1-progress);if(this.mode==='exit-closed')x+=body.width*.4*progress;
    }
    if(this.mode==='inside-window'&&folderWindow){this.insideWindowId=explorer!.windowId;this.inside={...folderWindow};const wanted=x+travel;x=clamp(wanted,folderWindow.x+12-body.x,folderWindow.x+folderWindow.width-12-body.x-body.width);reverse=!!travel&&x!==wanted;y=folderWindow.y+folderWindow.height-30-body.y-body.height;action=travel?'WALK':'IDLE';}
    if(this.mode==='exit-approach'&&this.inside){const w=scene.windows.find(w=>w.id===this.insideWindowId),different=scene.explorers.some(e=>e.windowId===this.insideWindowId&&e.folderId!==this.folder!.id);
@@ -57,25 +60,25 @@ export class DesktopWorld{
      if(Math.abs(target-x)<1){x=target;this.exitStart={x,y};this.begin('exit-window',now);}
     }
    }
-   if(this.mode==='exit-window'&&this.inside){const r=this.inside,p=clamp((now-this.since)/900,0,1);if(!this.exitStart)this.exitStart={x,y};x=this.exitStart.x+(this.exitFacing??1)*(body.width+24)*p;y=this.exitStart.y;}
+   if(this.mode==='exit-window'&&this.inside){const r=this.inside,p=clamp((now-this.since)/this.duration,0,1);if(!this.exitStart)this.exitStart={x,y};x=this.exitStart.x+(this.exitFacing??1)*(body.width+24)*p;y=this.exitStart.y;}
 
    if(this.mode==='enter')action='ENTER_FOLDER';if(this.mode==='exit-closed')action='EXIT_CLOSED_FOLDER';if(this.mode==='exit-window')action='EXIT_WINDOW';hidden=this.mode==='inside-closed';
-   if((this.mode==='exit-closed'||this.mode==='exit-window')&&now-this.since>=900){this.reset();this.cooldown=now+15000;landing=true;}
-   return {x:Math.round(x),y:Math.round(y),action,hidden,landing,reverse,mode:this.mode,folderAnchor:hidden?{x:this.folder.rect.x+this.folder.rect.width/2,y:this.folder.rect.y+this.folder.rect.height/2}:undefined,facing:this.mode==='exit-approach'||this.mode==='exit-window'?this.exitFacing:undefined,folderProgress:this.mode==='enter'||this.mode==='exit-closed'||this.mode==='exit-window'?clamp((now-this.since)/900,0,1):undefined,clip:this.mode==='inside-window'||this.mode==='exit-approach'?this.inside:undefined,ownerWindow:this.mode==='inside-window'||this.mode==='exit-approach'||this.mode==='exit-window'?this.insideWindowId:undefined};
+   if((this.mode==='exit-closed'||this.mode==='exit-window')&&now-this.since>=900){this.reset();this.cooldown=now+variedDuration(15000,this.random);landing=true;}
+   return {x:Math.round(x),y:Math.round(y),action,hidden,landing,reverse,mode:this.mode,folderAnchor:hidden?{x:this.folder.rect.x+this.folder.rect.width/2,y:this.folder.rect.y+this.folder.rect.height/2}:undefined,facing:this.mode==='exit-approach'||this.mode==='exit-window'?this.exitFacing:undefined,folderProgress:this.mode==='enter'||this.mode==='exit-closed'||this.mode==='exit-window'?clamp((now-this.since)/this.duration,0,1):undefined,clip:this.mode==='inside-window'||this.mode==='exit-approach'?this.inside:undefined,ownerWindow:this.mode==='inside-window'||this.mode==='exit-approach'||this.mode==='exit-window'?this.insideWindowId:undefined};
   }
-  if(this.mode==='normal'&&!this.forceFloor&&o.folderPlay&&now>this.cooldown&&scene.foldersAvailable){const p=foot(),folder=scene.folders.find(f=>Math.abs(p.x-(f.rect.x+f.rect.width/2))<Math.max(35,body.width*.55)&&Math.abs(p.y-(f.rect.y+f.rect.height*.7))<Math.max(50,body.height*.65)&&(o.behindWindows||!scene.windows.some(w=>contains(w.rect,f.rect.x+f.rect.width/2,f.rect.y+f.rect.height/2))));if(folder){this.folder={id:folder.id,rect:{...folder.rect}};this.begin('enter',now);return this.step({x,y},body,area,o,scene,now,0);}}
+  if(this.mode==='normal'&&!this.forceFloor&&o.folderPlay&&now>this.cooldown&&scene.foldersAvailable){const p=foot(),folder=scene.folders.find(f=>Math.abs(p.x-(f.rect.x+f.rect.width/2))<Math.max(35,body.width*.55)&&Math.abs(p.y-(f.rect.y+f.rect.height*.7))<Math.max(50,body.height*.65)&&(o.behindWindows||!scene.windows.some(w=>contains(w.rect,f.rect.x+f.rect.width/2,f.rect.y+f.rect.height/2))));if(!folder)this.folderEncounter='';else if(this.folderEncounter!==folder.id){this.folderEncounter=folder.id;if(randomUnit(this.random)<.55){this.folder={id:folder.id,rect:{...folder.rect}};this.begin('enter',now);return this.step({x,y},body,area,o,scene,now,0);}}}
   if(this.mode==='mount'&&this.edge){const e=this.edge,m=e.mount!,w=scene.windows.find(w=>w.id===e.window);
    if(!w||!o.edgeClimb||o.pet==='penguin'||o.behindWindows){this.dropToFloor(now);}
-   else{const p=clamp((now-m.since)/500,0,1),t=p*p*(3-2*p),targetX=e.facing>0?w.rect.x+8-body.x:w.rect.x+w.rect.width-8-body.x-body.width,targetY=w.rect.y-body.y-body.height;x=m.x+(targetX-m.x)*t;y=m.y+(targetY-m.y)*t;
+   else{const p=clamp((now-m.since)/this.duration,0,1),t=p*p*(3-2*p),targetX=e.facing>0?w.rect.x+8-body.x:w.rect.x+w.rect.width-8-body.x-body.width,targetY=w.rect.y-body.y-body.height;x=m.x+(targetX-m.x)*t;y=m.y+(targetY-m.y)*t;
     if(p===1){this.begin('normal',now);this.edge=undefined;this.support={id:w.id,rect:{...w.rect}};return {x:Math.round(x),y:Math.round(y),action:'',hidden,landing:true,mode:this.mode,facing:e.facing};}
     return {x:Math.round(x),y:Math.round(y),action:'EDGE_MOUNT',hidden,landing,mode:this.mode,facing:e.facing,mountProgress:Math.round(p*16)/16};}
   }
   if(this.mode==='climb'&&this.edge){const e=this.edge,w=e.window?scene.windows.find(w=>w.id===e.window):undefined;
-   if(!o.edgeClimb||o.pet==='penguin'||e.window&&(!w||o.behindWindows)||now-this.since>(o.climbSpeed===undefined?3500:Math.min(20000,body.height*2000/Math.max(3,o.climbSpeed)))){this.dropToFloor(now);}
+   if(!o.edgeClimb||o.pet==='penguin'||e.window&&(!w||o.behindWindows)){this.dropToFloor(now);}
    else{if(w){const nx=e.facing>0?w.rect.x:w.rect.x+w.rect.width;if(Math.abs(nx-e.x)>80){this.dropToFloor(now);}else{e.x=nx;e.y+=w.rect.y-e.top;e.top=w.rect.y;}}
     if(this.mode==='climb'){x=e.x-body.x-body.width*(e.facing>0?.95:.05);e.y-=(o.climbSpeed??45)*dt;y=e.y;
      if(y+body.y+body.height<=e.top+2&&w){e.mount={x,y,since:now};this.begin('mount',now);return {x:Math.round(x),y:Math.round(y),action:'EDGE_MOUNT',hidden,landing,mode:this.mode,facing:e.facing,mountProgress:0};}
-     return {x:Math.round(x),y:Math.round(y),action:'EDGE_CLIMB',hidden,landing,mode:this.mode,facing:e.facing};}
+     if(now-this.since>=e.budget){this.dropToFloor(now);}else return {x:Math.round(x),y:Math.round(y),action:'EDGE_CLIMB',hidden,landing,mode:this.mode,facing:e.facing};}
    }
   }
   const platforms=this.forceFloor?[]:[...(o.windowWalk&&!o.behindWindows?scene.windows:[]),...(o.iconWalk?(scene.icons??[]).map(i=>({id:'icon:'+i.id,rect:{...i.rect,y:i.rect.y+i.rect.height*.2}})):[])];
@@ -90,7 +93,7 @@ export class DesktopWorld{
   if(!this.forceFloor&&o.edgeClimb&&o.pet!=='penguin'&&approach&&now>this.cooldown){
    const candidates=[{x:area.x,top:area.y,facing:-1},{x:area.x+area.width,top:area.y,facing:1},...(!o.windowWalk||o.behindWindows?[]:scene.windows.flatMap(w=>[{x:w.rect.x,top:w.rect.y,window:w.id,facing:1},{x:w.rect.x+w.rect.width,top:w.rect.y,window:w.id,facing:-1}]))];
    const e=candidates.find(e=>e.facing===Math.sign(approach)&&Math.abs(p.x-e.x)<body.width*.55&&p.y>e.top+body.height*.3);
-   if(e){this.edge={...e,y};this.begin('climb',now);this.cooldown=now+12000;return {x:Math.round(x),y:Math.round(y),action:'EDGE_CLIMB',hidden,landing,mode:this.mode,facing:e.facing};}
+   if(e){this.edge={...e,y,budget:variedDuration(o.climbSpeed===undefined?3500:Math.min(20000,body.height*2000/Math.max(3,o.climbSpeed)),this.random)};this.begin('climb',now);this.cooldown=now+variedDuration(12000,this.random);return {x:Math.round(x),y:Math.round(y),action:'EDGE_CLIMB',hidden,landing,mode:this.mode,facing:e.facing};}
   }
   if((o.gravity||this.forceFloor)&&!supported&&p.y<floor-1){if(this.mode!=='fall'){this.begin('fall',now);this.vy=0;}this.vy=Math.min(650,this.vy+1100*dt);const next=p.y+this.vy*dt,hit=surfaces.filter(w=>w.rect.y>=p.y-1&&w.rect.y<=next).sort((a,b)=>a.rect.y-b.rect.y)[0];const target=hit?.rect.y??floor;if(next>=target){y=target-body.y-body.height;this.vy=0;this.forceFloor=false;this.begin('normal',now);landing=true;if(hit)this.support={id:hit.id,rect:{...hit.rect}};}else{y+=this.vy*dt;action='ENV_FALL';}}
   else if(this.mode==='fall'){this.begin('normal',now);this.vy=0;}

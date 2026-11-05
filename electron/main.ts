@@ -1,7 +1,10 @@
+import {AutonomousTiming} from './autonomy';
+import {MovementRecovery,commitMovement} from './movement-recovery';
+import {surfaceFrame} from './surface-visual';
 import {PeriodicUpdateCheck,updateBadgeBitmap} from './update-notice';
 import {wallClimbSpeed} from './wall-motion';
 import {IconRoute,iconMotionLimits,iconHopAction,iconHopFrame,surfaceFallbackTravel} from './icon-route';
-import {penguinBreeds,penguinNames,penguinAnimationState,penguinCarryPosition,penguinDropPosition,PenguinWalkStepper} from './penguins';
+import {penguinBreeds,penguinNames,penguinAnimationState,penguinCarryPosition,penguinDropPosition,PenguinWalkStepper,penguinWalkVelocity} from './penguins';
 import {monkeyBreeds,monkeyNames,monkeyAnimationState,monkeyCarryPosition,monkeyDropPosition,MonkeyWalkStepper,monkeyWalkVelocity} from './monkeys';
 import {parrotBreeds,parrotNames,parrotAnimationState,parrotCarryPosition,parrotDropPosition} from './parrots';
 import {app,BrowserWindow,Tray,Menu,nativeImage,ipcMain,screen,dialog,session,powerMonitor,shell,clipboard} from 'electron';
@@ -27,7 +30,7 @@ import {InstallerGate} from './installer-gate';
 import {Options,presets,updateOptions} from './options';
 import {carryPosition,dropPosition,petRect,facingForDelta,nativePosition,limitToArea} from './position';
 import {inputBinaryPath} from './platform';
-import {DesktopWorld,Rect,desktopMotionPolicy} from './desktop-world';
+import {DesktopWorld,Rect,desktopMotionPolicy,safeRect} from './desktop-world';
 import {DesktopSceneMonitor,nativeSceneRect} from './desktop-scene';
 import {InputMonitor,inputError} from './input-monitor';
 import {isAppResource,isTrustedFrame,readSettings} from './security';
@@ -48,9 +51,10 @@ let suspended=false;const combo=new Combo(),smoke=physicalFolderTest||interactio
 const monkeyWalk=new MonkeyWalkStepper(),penguinWalk=new PenguinWalkStepper();
 let diagnosticReport='';
 let corePermissionWait=false;
-const desktopWorld=new DesktopWorld();
-let desktopView:{folderAnchor?:{x:number;y:number};action:string;hidden:boolean;mode:string;occluders:Rect[];clip?:Rect;folderProgress?:number;hopFrame?:number;mountProgress?:number}={action:'',hidden:false,mode:'normal',occluders:[]};
-let desktopViewKey='',pettingUntil=0,lastPetting=0,environmentLandingUntil=0;const iconRoute=new IconRoute();
+const motionRandom=smoke?()=>.25:Math.random,behavior=new AutonomousTiming(motionRandom),movementRecovery=new MovementRecovery();
+const desktopWorld=new DesktopWorld(motionRandom);
+let desktopView:{folderAnchor?:{x:number;y:number};action:string;hidden:boolean;mode:string;occluders:Rect[];clip?:Rect;folderProgress?:number;hopFrame?:number;surfaceFrame?:number;mountProgress?:number}={action:'',hidden:false,mode:'normal',occluders:[]};
+let desktopViewKey='',pettingUntil=0,lastPetting=0,environmentLandingUntil=0;const iconRoute=new IconRoute(motionRandom);
 let nativePositionWrites=0;
 let queuedDesktopTravel=0;
 let desktopMotionTimer:ReturnType<typeof setInterval>|undefined;
@@ -66,42 +70,51 @@ function petPointerVisible(){
 }
 const desktopSupported=['win32','darwin'].includes(process.platform);
 const desktopScene=new DesktopSceneMonitor(app.isPackaged?(process.platform==='darwin'?path.join(process.resourcesPath,'..','MacOS','DesktopScene-mac'):path.join(process.resourcesPath,'DesktopScene.exe')):path.join(app.getAppPath(),'native',process.platform==='darwin'?'DesktopScene-mac':'DesktopScene.exe'),r=>process.platform==='darwin'?nativeSceneRect(r):screen.screenToDipRect(null,nativeSceneRect(r)));
-function syncDesktop(){if(desktopSupported&&!paused&&!suspended&&!quitting&&(options.desktopRoam||options.windowWalk||options.behindWindows||options.folderPlay||options.edgeClimb||desktopWorld.mode.startsWith('exit-')))desktopScene.start(options.folderPlay||options.desktopRoam||desktopWorld.mode.startsWith('exit-'));else desktopScene.stop();}
+function surfaceMovementEnabled(){return options.desktopRoam||(options.pet==='parrot'&&options.parrotFlight&&options.wander);}
+function cancelMovementPlan(){desktopWorld.reset();iconRoute.reset();queuedDesktopTravel=0;environmentLandingUntil=0;desktopView={action:'',hidden:false,mode:'normal',occluders:[]};desktopViewKey='off';}
+function currentWindowPosition(){try{if(!win||win.isDestroyed())return;const p=win.getPosition();return nativePosition(p[0],p[1]);}catch{return undefined;}}
+function syncDesktop(){if(desktopSupported&&!paused&&!suspended&&!quitting&&(surfaceMovementEnabled()||options.windowWalk||options.behindWindows||options.folderPlay||options.edgeClimb||desktopWorld.mode.startsWith('exit-')))desktopScene.start(options.folderPlay||surfaceMovementEnabled()||desktopWorld.mode.startsWith('exit-'));else desktopScene.stop();}
 function desktopStep(now:number,travel:number){
- if(keyboardMovementPaused(now)){desktopWorld.freeze(now);iconRoute.freeze(now);queuedDesktopTravel=0;return true;}
- const enabled=desktopSupported&&(options.desktopRoam||options.behindWindows||options.windowWalk||options.gravity||options.folderPlay||options.edgeClimb||desktopWorld.mode.startsWith('exit-'));
+ if(keyboardMovementPaused(now)){desktopWorld.freeze(now);iconRoute.freeze(now);behavior.freeze(now);queuedDesktopTravel=0;return true;}
+ if(!movementRecovery.ready(now)){desktopWorld.freeze(now);iconRoute.freeze(now);return true;}
+ const enabled=desktopSupported&&(surfaceMovementEnabled()||options.behindWindows||options.windowWalk||options.gravity||options.folderPlay||options.edgeClimb||desktopWorld.mode.startsWith('exit-'));
  if(enabled&&paused&&!desktopWorld.mode.startsWith('exit-'))return true;
  if(!enabled||moving||carried||suspended){if(!enabled)desktopWorld.reset();if(desktopViewKey!=='off'){desktopView={action:'',hidden:false,mode:'normal',occluders:[]};desktopViewKey='off';}return false;}
- const [x,y]=win.getPosition(),area=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea,body=petRect(options.size),scene=desktopScene.scene;
+ const actual=currentWindowPosition();if(!actual){cancelMovementPlan();movementRecovery.fail(now);return true;}
+ const {x,y}=actual;let area:Rect;try{area=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;}catch{cancelMovementPlan();movementRecovery.fail(now);return true;}
+ if(!safeRect(area)){cancelMovementPlan();movementRecovery.fail(now);return true;}
+ const body=petRect(options.size),scene=desktopScene.scene;
  const canMove=options.wander||options.desktopRoam;if(!canMove&&!desktopWorld.droppingToFloor)desktopWorld.pauseMotion();
- let point={x,y},hopping=false,hopFrame:number|undefined;
- if(options.desktopRoam&&(awakeForMovement(options.autoSleep,now-lastHit)||iconRoute.active)&&desktopWorld.mode==='normal'&&now>=pettingUntil&&!desktopWorld.droppingToFloor){
+ let point={x,y},hopping=false,walkingOff=false,resting=false,hopFrame:number|undefined,poseFrame:number|undefined;
+ if(surfaceMovementEnabled()&&(awakeForMovement(options.autoSleep,behavior.idleFor(now-lastHit))||iconRoute.active)&&desktopWorld.mode==='normal'&&now>=pettingUntil&&!desktopWorld.droppingToFloor){
   const visible=(r:Rect)=>r.x>=area.x&&r.x+r.width<=area.x+area.width&&r.y>=area.y&&r.y+r.height<=area.y+area.height&&(options.behindWindows||!scene.windows.some(w=>r.x+r.width/2>=w.rect.x&&r.x+r.width/2<w.rect.x+w.rect.width&&r.y+r.height*.2>=w.rect.y&&r.y+r.height*.2<w.rect.y+w.rect.height));
   const icons=(scene.icons??[]).filter(i=>visible(i.rect));
-  if(options.windowWalk&&!options.behindWindows)for(const w of scene.windows)for(const [i,offset] of [body.width/2,w.rect.width/2,w.rect.width-body.width/2].entries())icons.push({id:'window:'+w.id+':'+i,rect:{x:w.rect.x+offset-10,y:w.rect.y-4,width:20,height:20}});
+  if((options.windowWalk||(options.pet==='parrot'&&options.parrotFlight))&&!options.behindWindows)for(const w of scene.windows)for(const [i,offset] of [body.width/2,w.rect.width/2,w.rect.width-body.width/2].entries())icons.push({id:'window:'+w.id+':'+i,rect:{x:w.rect.x+offset-10,y:w.rect.y-4,width:20,height:20}});
   const safeIcons=icons.filter(i=>{const cx=i.rect.x+i.rect.width/2,fy=i.rect.y+i.rect.height*.2;return cx-body.width/2>=area.x&&cx+body.width/2<=area.x+area.width&&fy-body.height>=area.y&&fy<=area.y+area.height;});
-  const route=iconRoute.step({x:x+body.x+body.width/2,y:y+body.y+body.height},safeIcons,now,iconMotionLimits(options.pet,options.monkeyBreed,options.penguinBreed,body.width,options.parrotFlight),options.behindWindows?[]:scene.windows.map(w=>w.rect));
+  const route=iconRoute.step({x:x+body.x+body.width/2,y:y+body.y+body.height},safeIcons,now,iconMotionLimits(options.pet,options.monkeyBreed,options.penguinBreed,body.width,options.parrotFlight),options.behindWindows?[]:scene.windows.map(w=>w.rect),{allowDrop:options.desktopRoam&&options.gravity,walkSpeed:options.pet==='penguin'?penguinWalkVelocity(options.penguinBreed,options.size,options.fps):wallClimbSpeed(options)});
+  if(route.invalid){cancelMovementPlan();movementRecovery.fail(now);return true;}
   if(route.fall)desktopWorld.dropToFloor(now);
-  point={x:route.foot.x-body.x-body.width/2,y:route.foot.y-body.y-body.height};hopping=route.moving;hopFrame=route.progress===undefined?undefined:iconHopFrame(route.progress);if(route.facing)direction=route.facing;const onSurface=desktopWorld.onSurface||Math.abs(point.y+body.y+body.height-area.y-area.height)<3;const fallbackStep=!travel&&onSurface&&!route.moving?options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):undefined:undefined;travel=surfaceFallbackTravel(onSurface,awakeForMovement(options.autoSleep,now-lastHit),route.moving,!!route.fall,now<environmentLandingUntil,travel,direction,fallbackStep);
+  point={x:route.foot.x-body.x-body.width/2,y:route.foot.y-body.y-body.height};hopping=route.motion==='hop';walkingOff=route.motion==='walk';resting=!!route.resting;hopFrame=route.progress===undefined?undefined:iconHopFrame(route.progress);poseFrame=route.progress===undefined?undefined:surfaceFrame(route.progress);if(route.facing)direction=route.facing;const onSurface=desktopWorld.onSurface||Math.abs(point.y+body.y+body.height-area.y-area.height)<3;const fallbackStep=!travel&&onSurface&&!route.moving?options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):undefined:undefined;travel=walkingOff||resting?0:surfaceFallbackTravel(onSurface,awakeForMovement(options.autoSleep,behavior.idleFor(now-lastHit)),route.moving,!!route.fall,now<environmentLandingUntil,travel,direction,fallbackStep);
  }
+ if(hopping||walkingOff)desktopWorld.detachSupport();
  if(now<pettingUntil)travel=0;
  const wasExiting=desktopWorld.mode.startsWith('exit-');const policy=desktopMotionPolicy(options,hopping);
- const next=desktopWorld.step(point,body,area,{...policy,edgeClimb:policy.edgeClimb&&(awakeForMovement(options.autoSleep,now-lastHit)||desktopWorld.mode==='climb'||desktopWorld.mode==='mount'),climbSpeed:wallClimbSpeed(options),walkSpeed:options.pet==='penguin'?8*options.size:wallClimbSpeed(options)*(options.pet==='parrot'?2:1),facing:direction},scene,now,travel);
+ const next=desktopWorld.step(point,body,area,{...policy,edgeClimb:!walkingOff&&policy.edgeClimb&&(awakeForMovement(options.autoSleep,behavior.idleFor(now-lastHit))||desktopWorld.mode==='climb'||desktopWorld.mode==='mount'),climbSpeed:wallClimbSpeed(options),walkSpeed:options.pet==='penguin'?8*options.size:wallClimbSpeed(options)*(options.pet==='parrot'?2:1),facing:direction},scene,now,travel);
  if(next.mode!=='normal')iconRoute.reset();if(wasExiting&&!next.mode.startsWith('exit-'))syncDesktop();
- positionWindow(next.x,next.y);if(next.facing)direction=next.facing;if(next.reverse)direction*=-1;if(next.landing)environmentLandingUntil=now+260;
+ if(!commitMovement(next,positionWindow,cancelMovementPlan,movementRecovery,now))return true;if(next.facing)direction=next.facing;if(next.reverse)direction*=-1;if(next.landing)environmentLandingUntil=now+260;
  if(next.mode==='enter'||next.mode==='exit-closed')direction=1;
  // Only windows in front of the current Explorer can hide an in-window pet.
  const ownerIndex=next.ownerWindow?scene.windows.findIndex(w=>w.id===next.ownerWindow):-1;
  const occluders=((next.mode==='inside-window'||next.mode==='exit-approach'||next.mode==='exit-window')&&ownerIndex>=0?scene.windows.slice(0,ownerIndex):options.behindWindows?scene.windows:[]).filter(w=>w.rect.x<x+320&&w.rect.x+w.rect.width>x&&w.rect.y<y+280&&w.rect.y+w.rect.height>y).map(w=>({x:Math.round(w.rect.x-next.x),y:Math.round(w.rect.y-next.y),width:Math.round(w.rect.width),height:Math.round(w.rect.height)}));
  const clip=next.clip?{x:next.clip.x-next.x,y:next.clip.y-next.y+80,width:next.clip.width,height:Math.max(0,next.clip.height-100)}:undefined;
- const action=now<pettingUntil?'PETTED':next.action==='ENV_FALL'?'FALL_GROUND':next.action||(hopping?iconHopAction(options.pet,hopFrame??0):now<environmentLandingUntil?'LAND_GROUND':'');
- const placed=next.folderAnchor?win.getPosition():[next.x,next.y];const view={action,hidden:next.hidden,mode:next.mode,occluders,clip,folderAnchor:next.folderAnchor?{x:next.folderAnchor.x-placed[0],y:next.folderAnchor.y-placed[1]}:undefined,folderProgress:next.folderProgress,hopFrame,mountProgress:next.mountProgress};const key=JSON.stringify(view);if(key!==desktopViewKey){desktopView=view;desktopViewKey=key;}return true;
+ const action=now<pettingUntil?'PETTED':next.action==='ENV_FALL'?'FALL_GROUND':next.action||(hopping?iconHopAction(options.pet,hopFrame??0):walkingOff?'WALK':resting?'IDLE':now<environmentLandingUntil?'LAND_GROUND':'');
+ const placed=next.folderAnchor?win.getPosition():[next.x,next.y];const view={action,hidden:next.hidden,mode:next.mode,occluders,clip,folderAnchor:next.folderAnchor?{x:next.folderAnchor.x-placed[0],y:next.folderAnchor.y-placed[1]}:undefined,folderProgress:next.folderProgress,hopFrame,surfaceFrame:poseFrame,mountProgress:next.mountProgress};const key=JSON.stringify(view);if(key!==desktopViewKey){desktopView=view;desktopViewKey=key;}return true;
 }
 let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
 let installerGate:InstallerGate|undefined;
-const buildLabel='Mac 창·폴더 초기 지원 · 위치 표시·전환 개선';
+const buildLabel='좌표 복구 · 자율 이동 개선 · 입력 우선';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function updateChanged(){if(quitting)return;refresh();send();remote?.webContents.send('update-status');}
 const updateChecks=new PeriodicUpdateCheck(()=>updates.check(),updateChanged);
@@ -112,23 +125,23 @@ function inputReport(){
 }
 if(smoke){const testProfile=path.join(app.getPath('temp'),'keyboard-cat-smoke-'+process.pid);mkdirSync(testProfile,{recursive:true});app.setPath('userData',realpathSync(testProfile));}
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
-function keyboardView(now:number){return options.pet==='penguin'?penguinAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='monkey'?monkeyAnimationState(options.monkeyBreed,paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,now-lastHit,combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet==='dog'?'dog':'cat');}
+function keyboardView(now:number){return options.pet==='penguin'?penguinAnimationState(paused,!options.restAnimation,moving,behavior.idleFor(now-lastHit),combo.count,options.effects?effect:0,now-effectAt):options.pet==='monkey'?monkeyAnimationState(options.monkeyBreed,paused,!options.restAnimation,moving,behavior.idleFor(now-lastHit),combo.count,options.effects?effect:0,now-effectAt):options.pet==='parrot'?parrotAnimationState(paused,!options.restAnimation,moving,behavior.idleFor(now-lastHit),combo.count,options.effects?effect:0,now-effectAt):animationState(paused,!options.restAnimation,moving,behavior.idleFor(now-lastHit),combo.count,options.effects?effect:0,now-effectAt,options.pet==='cat'&&options.catBreed!=='original'?'dog':options.pet==='dog'?'dog':'cat');}
 function keyboardMovementPaused(now:number){return !paused&&!moving&&!carried&&(keyboardView(now).effect>0||(combo.count>0&&now-lastHit<1500));}
-function state(){const now=Date.now();let view=keyboardView(now);view=motionVisual(view,paused,carried,now<landingUntil,desktopView.action,options.petting&&now<pettingUntil);view=sleepPreference(view,options.autoSleep,paused,options.sleepAnimation);return {macLocation:process.platform==='darwin'?macLaunchLocation(app.getPath('exe')):undefined,buildLabel,diagnosticReport,corePermissionWait,updateAvailable:updates.status().status==='available'?updates.status().version:undefined,desktopMode:desktopView.mode,desktopStatus:desktopScene.status,desktopView,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil&&view.effect===0,hookError,effectAt,lastHit,...view};}
+function state(){const now=Date.now();let view=keyboardView(now);view=motionVisual(view,paused,carried,now<landingUntil,desktopView.action,options.petting&&now<pettingUntil,combo.count>0&&now-lastHit<1500);if(options.wander&&behavior.resting&&!keyboardMovementPaused(now)&&!desktopView.action&&view.action==='WALK')view={...view,action:'IDLE',animate:options.restAnimation};view=sleepPreference(view,options.autoSleep,paused,options.sleepAnimation);return {macLocation:process.platform==='darwin'?macLaunchLocation(app.getPath('exe')):undefined,buildLabel,diagnosticReport,corePermissionWait,updateAvailable:updates.status().status==='available'?updates.status().version:undefined,desktopMode:desktopView.mode,desktopStatus:movementRecovery.message||desktopScene.status,desktopView,version:currentVersion,platform:process.platform,inputReady:inputMonitor.status==='ready',options,facing:direction,combo:combo.count,paused,moving,carried,landing:now<landingUntil&&!keyboardMovementPaused(now)&&view.effect===0,hookError,effectAt,lastHit,...view};}
 function send(){if(!win||win.isDestroyed())return;const value=state();if(petDelivery.changed(value)){stateMessages++;win.webContents.send('state',value);}if(remote&&!remote.isDestroyed()&&controllerDelivery.changed(value))remote.webContents.send('state',value);}
 function save(){if(quitting||!win||win.isDestroyed())return;const [x,y]=win.getPosition();writeFileSync(settingsPath(),JSON.stringify({x,y,options}));}
-function countInput(n:number){if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}desktopCadence();}
+function countInput(n:number){if(paused||suspended||quitting)return;const now=Date.now(),crossed=combo.hit(now,n);lastHit=now;behavior.activity(now);if(crossed.length){effect=crossed[crossed.length-1];effectAt=now;}desktopCadence();}
 const inputMonitor=new InputMonitor(process.platform,prompt=>spawn(inputBinaryPath(process.platform,app.isPackaged,process.resourcesPath,app.getAppPath()),[String(process.pid),...(process.platform==='darwin'&&!prompt?['--no-prompt']:[])],{windowsHide:true,stdio:['ignore','pipe','pipe']}),countInput,status=>{hookError=inputError(status);send();refresh();});
 function stopInput(){inputMonitor.stop();}
 function startInput(prompt=true){if(!paused&&!suspended&&!quitting&&!smoke)inputMonitor.start(prompt);}
-function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!pos||quitting||!win||win.isDestroyed())return false;const bounded=options.multiMonitor?pos:limitToArea(pos,options.size,screen.getPrimaryDisplay().workArea,carried),next=nativePosition(bounded.x,bounded.y);if(!next)return false;const [oldX,oldY]=win.getPosition();if(oldX!==next.x||oldY!==next.y){win.setPosition(next.x,next.y);nativePositionWrites++;}return true;}
+function positionWindow(x:unknown,y:unknown){const pos=nativePosition(x,y);if(!pos||quitting||!win||win.isDestroyed())return false;try{const area=options.multiMonitor?undefined:screen.getPrimaryDisplay().workArea;if(area&&!safeRect(area))return false;const bounded=area?limitToArea(pos,options.size,area,carried):pos,next=nativePosition(bounded.x,bounded.y);if(!next)return false;const [oldX,oldY]=win.getPosition();if(oldX!==next.x||oldY!==next.y){win.setPosition(next.x,next.y);nativePositionWrites++;}return true;}catch{return false;}}
 function enforceMonitor(){if(!options.multiMonitor&&!quitting&&win&&!win.isDestroyed()){const [x,y]=win.getPosition();positionWindow(x,y);}}
 function stopCarry(){carried=false;if(carryTimer)clearInterval(carryTimer);carryTimer=undefined;}
 let previousPointerX=0;
 function followCarry(){if(!carried||quitting||!win||win.isDestroyed()){stopCarry();return;}const p=screen.getCursorScreenPoint(),next=facingForDelta(direction,p.x-previousPointerX);previousPointerX=p.x;const pos=(options.pet==='penguin'?penguinCarryPosition:options.pet==='monkey'?monkeyCarryPosition:options.pet==='parrot'?parrotCarryPosition:carryPosition)(p,options.size),b=win.getBounds();if(pos.x!==b.x||pos.y!==b.y)positionWindow(pos.x,pos.y);if(next!==direction){direction=next;send();}}
 function finishCarry(){if(!carried)return;followCarry();if(!carried)return;stopCarry();landingUntil=Date.now()+(options.pet==='parrot'?1000:450);lastHit=Date.now();const p=screen.getCursorScreenPoint(),a=screen.getDisplayNearestPoint(p).workArea,pos=(options.pet==='penguin'?penguinDropPosition:options.pet==='monkey'?monkeyDropPosition:options.pet==='parrot'?parrotDropPosition:dropPosition)(p,options.size,a);positionWindow(pos.x,pos.y);win.setIgnoreMouseEvents(!moving,{forward:true});save();send();}
 function startCarry(){if(quitting||!win||win.isDestroyed()||carried||moving||!options.grabEnabled)return;desktopWorld.reset();iconRoute.reset();carried=true;previousPointerX=screen.getCursorScreenPoint().x;win.setIgnoreMouseEvents(false);followCarry();carryTimer=setInterval(followCarry,options.quality==='low'?66:33);send();}
-function setMoving(value:boolean){finishCarry();moving=value;win.setIgnoreMouseEvents(!moving,{forward:true});send();refresh();}
+function setMoving(value:boolean){finishCarry();moving=value;if(value)cancelMovementPlan();win.setIgnoreMouseEvents(!moving,{forward:true});send();refresh();}
 function togglePause(){paused=!paused;combo.reset();effect=0;effectAt=0;lastHit=Date.now();paused?stopInput():startInput();syncDesktop();send();refresh();}
 function center(){const a=screen.getPrimaryDisplay().workArea;positionWindow(a.x+a.width-650,a.y+a.height-280);save();}
 function secure(view:BrowserWindow){view.webContents.setWindowOpenHandler(()=>({action:'deny'}));view.webContents.on('will-navigate',e=>e.preventDefault());view.webContents.on('will-frame-navigate',e=>e.preventDefault());view.webContents.on('will-redirect',e=>e.preventDefault());view.webContents.on('will-attach-webview',e=>e.preventDefault());}
@@ -246,7 +259,9 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   win.on('close',e=>{if(!quitting){e.preventDefault();setMoving(false);}});
   let previousWindowX=win.getPosition()[0];win.on('moved',()=>{const x=win.getPosition()[0];if(moving){direction=facingForDelta(direction,x-previousWindowX);send();if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}previousWindowX=x;});if(!(smoke&&process.argv.includes('--timing-hidden-pet')))win.showInactive();startInput();syncDesktop();if(desktopSupported&&options.behindWindows)desktopWorld.dropToFloor(Date.now());
   powerMonitor.on('suspend',()=>{updateChecks.stop();suspended=true;finishCarry();stopInput();syncDesktop();combo.reset();effect=0;effectAt=0;});powerMonitor.on('resume',()=>{if(!smoke)updateChecks.start();suspended=false;lastHit=Date.now();startInput(false);syncDesktop();});
-  const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();combo.expire(now);let travel=0;if(options.wander&&!paused&&!moving&&!carried&&!keyboardMovementPaused(now)&&now-lastHit>4000&&awakeForMovement(options.autoSleep,now-lastHit)&&now>=pettingUntil&&now>=environmentLandingUntil)travel=options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):direction*3;else{monkeyWalk.reset();penguinWalk.reset();}const handled=desktopMotionTimer?(queuedDesktopTravel+=travel,true):desktopStep(now,travel);if(!handled&&travel){const [x,y]=win.getPosition(),a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;let nx=x+travel;if(nx<a.x||nx+320>a.x+a.width){direction*=-1;monkeyWalk.reset();penguinWalk.reset();nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}positionWindow(nx,y);}desktopCadence();send();},100);
+  const timer=setInterval(()=>{if(quitting||win.isDestroyed())return;const now=Date.now();if(suspended){desktopWorld.freeze(now);iconRoute.freeze(now);behavior.freeze(now);return;}combo.expire(now);let travel=0;const eligible=movementRecovery.ready(now)&&options.wander&&!paused&&!moving&&!carried&&!keyboardMovementPaused(now)&&now-lastHit>behavior.walkAfter&&awakeForMovement(options.autoSleep,behavior.idleFor(now-lastHit))&&now>=pettingUntil&&now>=environmentLandingUntil;
+   if(eligible&&behavior.walkAllowed(now))travel=options.pet==='penguin'?penguinWalk.advance(options.penguinBreed,options.size,options.fps,direction):options.pet==='monkey'?monkeyWalk.advance(options.monkeyBreed,options.size,options.fps,direction):direction*3;else{if(!eligible)behavior.freeze(now);monkeyWalk.reset();penguinWalk.reset();}
+   const handled=desktopMotionTimer?(queuedDesktopTravel+=travel,true):desktopStep(now,travel);if(!handled&&travel&&movementRecovery.ready(now)){const actual=currentWindowPosition();if(actual){try{const a=(options.multiMonitor?screen.getDisplayMatching(win.getBounds()):screen.getPrimaryDisplay()).workArea;if(!safeRect(a))throw Error('Invalid movement area');let nx=actual.x+travel;if(nx<a.x||nx+320>a.x+a.width){direction*=-1;monkeyWalk.reset();penguinWalk.reset();nx=Math.max(a.x,Math.min(nx,a.x+a.width-320));}commitMovement({x:nx,y:actual.y},positionWindow,cancelMovementPlan,movementRecovery,now);}catch{cancelMovementPlan();movementRecovery.fail(now);}}else{cancelMovementPlan();movementRecovery.fail(now);}}desktopCadence();send();},100);
   if((updateRecovery&&existsSync(updateRecovery.root))||(managedUpdateFiles&&existsSync(managedUpdateFiles.record))){
    let attempts=0,checking=false;
    startupTimer=setInterval(async()=>{
@@ -393,7 +408,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
    apply({sleepAnimation:false});
    const sleepOffResult=await waitSleep('none'),sleepOff=sleepOffResult.animation;if(!sleepOffResult.ready)throw Error('Sleep animation did not stop');
    const awakePosition=win.getPosition();apply({autoSleep:false,wander:true});const awakeStart=win.getPosition()[0];await new Promise(r=>setTimeout(r,650));const sleepDisabledTravel=win.getPosition()[0]-awakeStart;if(!sleepDisabledTravel||state().action==='SLEEP')throw Error('Sleep-off must keep wandering after 30 seconds');apply({autoSleep:true,wander:false});positionWindow(awakePosition[0],awakePosition[1]);lastHit=Date.now();send();
-   setMoving(true);setMoving(false);const before=stateMessages;await new Promise(r=>setTimeout(r,350));if(before!==stateMessages)throw Error('Redundant idle updates');
+   setMoving(true);setMoving(false);const before=stateMessages,idleBefore=state();await new Promise(r=>setTimeout(r,350));if(before!==stateMessages)throw Error('Redundant idle updates '+JSON.stringify({before:idleBefore,after:state()}));
    const animation=await win.webContents.executeJavaScript(`getComputedStyle(document.querySelector('img')).animationName`);if(animation!=='none')throw Error('Idle animation not stopped');
    const idleMessages=stateMessages-before;
    const monkeyTravelReport=[],beforeWalkOptions=options,beforeWalkFacing=direction,beforeWalkPosition=win.getPosition();

@@ -1,6 +1,9 @@
 import type {Rect} from './desktop-world';
+import {safeRect} from './desktop-world';
+import {RandomSource,randomDuration,randomUnit} from './autonomy';
 export type IconPlatform={id:string;rect:Rect};
 export type IconMotionLimits={distance:number;rise:number;drop:number;arc:number;duration:number};
+export type RouteResult={foot:{x:number;y:number};moving:boolean;motion?:'hop'|'walk';resting?:boolean;fall?:boolean;invalid?:boolean;landed?:boolean;facing?:number;progress?:number};
 const defaults:IconMotionLimits={distance:220,rise:150,drop:150,arc:60,duration:1100};
 export function iconHopFrame(progress:number){return [0,.08,.18,.32,.50,.78,.88,.96].filter(t=>progress>=t).length-1;}
 export function iconHopAction(pet:string,frame:number){
@@ -28,23 +31,32 @@ function pointAt(from:{x:number;y:number},end:{x:number;y:number},p:number,arc:n
 function clearPath(from:{x:number;y:number},target:IconPlatform,arc:number,obstacles:Rect[]){const end=surface(target);for(let n=1;n<=12;n++){const p=pointAt(from,end,n/12,arc);if(obstacles.some(r=>p.x>r.x+2&&p.x<r.x+r.width-2&&p.y>r.y+2&&p.y<r.y+r.height-2))return false;}return true;}
 // Positions only: files are never opened, moved or changed by this planner.
 export class IconRoute{
- private hop?:{from:{x:number;y:number};target:IconPlatform;start:number;limits:IconMotionLimits};private serial=0;private current='';private restUntil=0;
+ private hop?:{from:{x:number;y:number};target:IconPlatform;start:number;limits:IconMotionLimits};private current='';private restUntil=0;private walkingOff?:{target:IconPlatform;direction:number;foot:{x:number;y:number}};
  private last=0;
- get active(){return !!this.hop;}
+ constructor(private random:RandomSource=Math.random){}
+ get active(){return !!this.hop||!!this.walkingOff;}
  freeze(now:number){const elapsed=this.last?Math.max(0,now-this.last):0;this.last=now;if(this.hop)this.hop.start+=elapsed;if(this.restUntil)this.restUntil+=elapsed;}
- reset(){this.hop=undefined;this.current='';this.restUntil=0;}
- step(foot:{x:number;y:number},icons:IconPlatform[],now:number,limits:IconMotionLimits=defaults,obstacles:Rect[]=[]){
-  this.last=now;
+ reset(){this.hop=undefined;this.walkingOff=undefined;this.current='';this.restUntil=0;}
+ step(foot:{x:number;y:number},icons:IconPlatform[],now:number,limits:IconMotionLimits=defaults,obstacles:Rect[]=[],policy:{allowDrop:boolean;walkSpeed:number}={allowDrop:false,walkSpeed:25}):RouteResult{
+  const dt=this.last?Math.max(0,Math.min(.2,(now-this.last)/1000)):.1;this.last=now;
+  if(![foot.x,foot.y,now,...Object.values(limits),policy.walkSpeed].every(Number.isFinite)||limits.duration<=0||limits.arc<0||policy.walkSpeed<=0||icons.some(i=>!safeRect(i.rect))||obstacles.some(r=>!safeRect(r))){this.reset();return {foot,moving:false,invalid:true};}
+  if(this.walkingOff){const w=this.walkingOff,target=icons.find(i=>i.id===w.target.id);if(!target||Math.hypot(target.rect.x-w.target.rect.x,target.rect.y-w.target.rect.y)>8){this.reset();return {foot,moving:false,fall:true};}
+   w.foot.x+=target.rect.x-w.target.rect.x;w.target.rect={...target.rect};const end=w.direction<0?target.rect.x-4:target.rect.x+target.rect.width+4,d=end-w.foot.x,next={x:w.foot.x+Math.sign(d)*Math.min(Math.abs(d),policy.walkSpeed*dt),y:surface(target).y};w.foot=next;
+   if(Math.abs(end-next.x)<.01){this.reset();return {foot:next,moving:false,fall:true,facing:w.direction};}
+   return {foot:next,moving:true,motion:'walk',facing:w.direction};
+  }
   if(this.hop){const h=this.hop,target=icons.find(i=>i.id===h.target.id);if(!target||Math.hypot(target.rect.x-h.target.rect.x,target.rect.y-h.target.rect.y)>8){this.reset();return {foot,fall:true,moving:false};}
    const end=surface(target),p=Math.max(0,Math.min(1,(now-h.start)/h.limits.duration)),next=pointAt(h.from,end,p,h.limits.arc);
    if(!clearPath(h.from,target,h.limits.arc,obstacles)){this.reset();return {foot,fall:true,moving:false};}
-   if(p>=1){this.current=target.id;this.hop=undefined;this.restUntil=now+80;return {foot:end,moving:false,landed:true};}return {foot:next,moving:true,facing:end.x<h.from.x?-1:1,progress:p};
+   if(p>=1){this.current=target.id;this.hop=undefined;this.restUntil=now+randomDuration(40,200,this.random);return {foot:end,moving:false,landed:true,resting:true};}return {foot:next,moving:true,motion:'hop',facing:end.x<h.from.x?-1:1,progress:p};
   }
   if(this.current&&!icons.some(i=>i.id===this.current)){this.reset();return {foot,fall:true,moving:false};}
-  if(now<this.restUntil)return {foot,moving:false};
+  if(now<this.restUntil)return {foot,moving:false,resting:!!this.current};
+  const standing=icons.find(i=>i.id===this.current);
+  if(standing&&policy.allowDrop&&randomUnit(this.random)<.22){this.walkingOff={target:{id:standing.id,rect:{...standing.rect}},direction:randomUnit(this.random)<.5?-1:1,foot:{...foot}};return {foot,moving:true,motion:'walk',facing:this.walkingOff.direction};}
   const candidates=icons.filter(i=>{const p=surface(i),d=Math.hypot(p.x-foot.x,p.y-foot.y),rise=foot.y-p.y;return i.id!==this.current&&d>8&&d<=limits.distance&&rise<=limits.rise&&rise>=-limits.drop;}).sort((a,b)=>Math.hypot(surface(a).x-foot.x,surface(a).y-foot.y)-Math.hypot(surface(b).x-foot.x,surface(b).y-foot.y)).slice(0,12).filter(i=>clearPath(foot,i,limits.arc,obstacles));
-  if(!candidates.length)return {foot,moving:false};
-  const higher=candidates.filter(i=>surface(i).y<foot.y-8),choices=higher.length?higher:candidates,target=choices[this.serial++%Math.min(3,choices.length)],end=surface(target);
-  this.hop={from:{...foot},target:{id:target.id,rect:{...target.rect}},start:now,limits:{...limits}};return {foot,moving:true,facing:end.x<foot.x?-1:1,progress:0};
+  if(!candidates.length){if(standing)this.restUntil=now+randomDuration(300,1500,this.random);return {foot,moving:false,resting:!!standing};}
+  const higher=candidates.filter(i=>surface(i).y<foot.y-8),choices=higher.length?higher:candidates,target=choices[Math.floor(randomUnit(this.random)*Math.min(3,choices.length))],end=surface(target);
+  this.hop={from:{...foot},target:{id:target.id,rect:{...target.rect}},start:now,limits:{...limits,duration:randomDuration(limits.duration*.9,limits.duration*1.3,this.random)}};return {foot,moving:true,motion:'hop',facing:end.x<foot.x?-1:1,progress:0};
  }
 }

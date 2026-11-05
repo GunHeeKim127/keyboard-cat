@@ -55,3 +55,9 @@ Mac 위치 수집 보조 프로그램은 창 위치와 Finder 최상위 바탕�
 좌표·모니터 영역 검증, 네이티브 호출 실패 시 이동 계획 취소 및 제한된 재시도를 추가했습니다. 첫 키 입력 우선·자율 행동 무작위 선택·파일 끝 이탈 검사를 포함한 자동 검사 228개를 통과했습니다. Windows·Mac 두 종류 패키지 보안·이미지·업데이트 복구, Mac 전달 파일 검사, 자체 서명·해시·기존 1703 PNG 일치 및 최종 배포 폴더 백신 탐지 0건을 확인했습니다. npm 취약점 검사에서 알려진 취약점 0건입니다. 실제 Mac 사용자 권한 변경·Finder·물리 입력이나 전체 침투 테스트를 의미하지 않습니다.
 
 소스 677034c3e19b5cde765edd5a12df9e1394cb1e4a. [빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41938392950), [Mac 전달 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41939592114), [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.1).
+
+## 2.5.2 배포 확인 (2026-11-05)
+
+걷기의 랜덤 정지 타이머를 제거하고 입력·절전·일시정지 우선순위를 유지했습니다. 자동 검사 228개와 Windows·Mac 두 종류 패키지 실행·이미지·보안·업데이트 복구 및 Mac 전달 파일 검사를 통과했습니다. 공식 npm 취약점 검사 0건, 자체 업데이트 서명·해시·기존 1703 PNG 일치, 최종 배포 폴더 백신 탐지 0건을 확인했습니다. 실제 Mac 사용자 권한 변경·Finder·물리 입력이나 전체 침투 테스트를 의미하지 않습니다. 첫 Mac Intel 시도에서는 앱·상호작용·업데이트 복구 검사가 모두 통과한 뒤 보고서 저장 단계에서 GitHub 서버 주소 조회(ENOTFOUND)가 실패했습니다. 동일 소스로 해당 작업을 재실행했으며 기존 성공 파일과 실패 로그를 보존했습니다.
+
+소스 0a7cab5dab9b37138f35f3165e46193fc0781131. [빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41942087772), [Mac 전달 파일 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41944556714), [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.2).

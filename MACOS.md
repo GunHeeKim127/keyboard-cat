@@ -1,4 +1,6 @@
-> 최신 2.5.1: [다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.1). M 계열(M1 Pro 포함)은 mac-arm64.dmg, Intel은 mac-x64.dmg입니다. 2.5.0과 호환되는 기능 묶음 업데이트를 제공합니다. 2.4.x 이전 Mac 설치에서 새 창·폴더 기능을 처음 사용하려면 앱 종료 후 응용 프로그램의 앱을 전체 대치하세요. 설정·캐시는 지우지 마세요. 실제 Finder·권한 변경·물리 입력은 실기 확인 항목입니다.
+> 최신 2.5.2: [다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.2). M 계열(M1 Pro 포함)은 mac-arm64.dmg, Intel은 mac-x64.dmg입니다. 2.5.0·2.5.1과 호환되는 기능 묶음 업데이트를 제공합니다. 걷기 중 랜덤 정지를 없앴으며, 입력 우선·절전 설정은 유지합니다. 더 오래된 Mac 앱에서 창·폴더 기능을 처음 사용하려면 앱 종료 후 응용 프로그램의 앱을 전체 대치해야 합니다. 설정·캐시는 지우지 마세요. 실제 Finder·권한 변경·물리 입력은 실기 확인 항목입니다.
+
+> 이전 2.5.1 안내: [다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.1). M 계열(M1 Pro 포함)은 mac-arm64.dmg, Intel은 mac-x64.dmg입니다. 2.5.0과 호환되는 기능 묶음 업데이트를 제공합니다. 2.4.x 이전 Mac 설치에서 새 창·폴더 기능을 처음 사용하려면 앱 종료 후 응용 프로그램의 앱을 전체 대치하세요. 설정·캐시는 지우지 마세요. 실제 Finder·권한 변경·물리 입력은 실기 확인 항목입니다.
 
 > 최신 2.5.0: [다운로드](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.0). M 계열은 mac-arm64.dmg, Intel은 mac-x64.dmg입니다. 새 보조 프로그램 때문에 이번에는 앱 종료 후 응용 프로그램의 앱을 대치해야 합니다. 설정·캐시는 지우지 마세요. 창·폴더 놀이는 초기 지원이며 입력 모니터링과 Finder용 손쉬운 사용·바탕화면 접근 허용은 별도입니다. 실제 Finder·권한 변경·물리 입력은 담당자 실기 확인 항목입니다.
 

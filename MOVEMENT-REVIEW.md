@@ -1,6 +1,6 @@
 # 이동 복구 수정 및 로컬 검증 (2026-11-05)
 
-현재 변경은 로컬 작업본이며, 공개 2.5.0 실행 파일에 포함되었다는 의미는 아닙니다.
+이 변경은 [2.5.1 정식 릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.1)에 포함되었습니다. 실행 파일 소스: 677034c3e19b5cde765edd5a12df9e1394cb1e4a.
 
 - 유효하지 않은 좌표는 네이티브 위치 변경 함수에 전달하지 않습니다. 실제 창 위치를 유지하고 기존 이동 계획과 대기 이동량을 취소합니다.
 - 재시도 간격은 250ms부터 최대 5초까지 늘어납니다. 다음 시도에서는 실제 창 위치와 최신 장면을 다시 읽습니다. 성공하면 복구 문구와 실패 횟수를 초기화합니다.
@@ -13,4 +13,4 @@
 
 검증: 전체 자동 검사 228개 통과, TypeScript 검사 및 빌드 통과. Windows 로컬 Electron 실행 검사 통과. 화면 검사 10,139회에서 빈 화면 0회·미완성 이미지 0회, 정지 중 중복 전송 0회였습니다. 분리된 입력창의 세 단계 모두 80자 입력 누락이 없었으며 콤보 중 위치 고정과 이후 이동 재개를 확인했습니다.
 
-검사 로그: `work/surface-motion-tests.log`, `work/surface-motion-app-smoke.log`. 입력창 검사는 운영체제의 실제 한글 조합이나 카카오톡 입력을 재현한 검사가 아닙니다. 이번 변경의 Mac 실제 실행, 패키지 및 배포 검증은 아직 수행하지 않았습니다. 어떤 환경에서도 오류나 깜빡임이 전혀 없다는 보장은 아닙니다.
+검사 로그: `work/surface-motion-tests.log`, `work/surface-motion-app-smoke.log`. 입력창 검사는 운영체제의 실제 한글 조합이나 카카오톡 입력을 재현한 검사가 아닙니다. Windows·Mac M 계열·Intel 패키지 실행·보안·업데이트 복구 검사와 Mac DMG·ZIP 전달 파일 검사를 통과했습니다. 실제 사용자 Mac의 Finder·권한 변경·물리 키보드는 실기 확인 항목입니다. [빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41938392950), [Mac 전달 파일 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41939592114). 어떤 환경에서도 오류나 깜빡임이 전혀 없다는 보장은 아닙니다.

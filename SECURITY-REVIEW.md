@@ -49,3 +49,9 @@ Mac 위치 수집 보조 프로그램은 창 위치와 Finder 최상위 바탕�
 공식 npm HTTPS 취약점 검사, 자동 검사 218개, Windows·Mac 두 종류의 패키지 보안·모션·업데이트 복구 및 실제 Mac 전달 파일 검사를 통과했습니다. 자체 서명·해시·1703 PNG 일치 및 Windows 최종 배포 폴더 백신 탐지 0건을 확인했습니다. 실제 Finder·사용자 권한 변경·물리 입력은 담당자 실기 확인 항목입니다. 초기 프레임 지연의 정확한 원인은 미확정이며 전면적인 성능·침투 테스트를 의미하지 않습니다.
 
 소스 6818aea87c5792cc86ccb7f3b89f9eed98b7ccd9. [최종 빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41810706770), [Mac 전달 파일 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41811770874), [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.0). Intel DMG의 임시 디스크 분리 실패 후보는 배포하지 않고 기존 기록을 보존한 채 새 검사 실행의 파일을 사용했습니다.
+
+## 2.5.1 배포 확인 (2026-11-05)
+
+좌표·모니터 영역 검증, 네이티브 호출 실패 시 이동 계획 취소 및 제한된 재시도를 추가했습니다. 첫 키 입력 우선·자율 행동 무작위 선택·파일 끝 이탈 검사를 포함한 자동 검사 228개를 통과했습니다. Windows·Mac 두 종류 패키지 보안·이미지·업데이트 복구, Mac 전달 파일 검사, 자체 서명·해시·기존 1703 PNG 일치 및 최종 배포 폴더 백신 탐지 0건을 확인했습니다. npm 취약점 검사에서 알려진 취약점 0건입니다. 실제 Mac 사용자 권한 변경·Finder·물리 입력이나 전체 침투 테스트를 의미하지 않습니다.
+
+소스 677034c3e19b5cde765edd5a12df9e1394cb1e4a. [빌드 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41938392950), [Mac 전달 검사](https://github.com/GunHeeKim127/keyboard-cat/actions/runs/41939592114), [릴리스](https://github.com/GunHeeKim127/keyboard-cat/releases/tag/v2.5.1).

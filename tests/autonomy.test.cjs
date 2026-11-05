@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {AutonomousTiming,randomDuration}=require('../dist-electron/autonomy');
-test('autonomous timing samples at transitions rather than on every movement tick',()=>{
- let calls=0;const t=new AutonomousTiming(()=>{calls++;return .25;});assert.equal(t.walkAfter,4000);assert.equal(t.sleepAfter,30000);t.walkAllowed(1000);const sampled=calls;for(let n=1001;n<1500;n++)assert(t.walkAllowed(n));assert.equal(calls,sampled);t.freeze(6500);assert(t.walkAllowed(6501));
+test('idle thresholds are sampled once per input burst, never on each movement tick',()=>{
+ let calls=0;const t=new AutonomousTiming(()=>{calls++;return .25;});assert.equal(t.walkAfter,4000);assert.equal(t.sleepAfter,30000);t.activity(1000);const sampled=calls;for(let n=1001;n<1500;n++){t.activity(n);assert.equal(t.idleFor(5000),5000);}assert.equal(calls,sampled);t.activity(4000);assert.equal(calls,sampled+2);
  assert.equal(randomDuration(100,200,()=>NaN),150);assert.equal(randomDuration(100,200,()=>-1),100);assert.equal(randomDuration(100,200,()=>2),200);
 });
 test('first keyboard input overrides environmental motion before a milestone combo',()=>{

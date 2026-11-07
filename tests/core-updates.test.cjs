@@ -12,6 +12,15 @@ function fixture(t,platform='win32'){
  const make=(version='2.1.2',bytes=Buffer.from('archive '+version),override={})=>{const m={format:1,version,runtime:{...runtime},size:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex'),...override};m.signature=crypto.sign(null,coreSigningData(m),keys.privateKey).toString('base64');return {m,bytes};};
  const put=f=>{fs.writeFileSync(store.file(f.m),f.bytes);return f.m;};return {dir,store,runtime,make,put,pub};
 }
+for(const cached of [false,true])test(`Mac unresolved 2.3.0 permission history does not block a newer update (cached=${cached})`,async t=>{
+ const f=fixture(t,'darwin'),old=f.put(f.make('2.3.0'));
+ const failure={version:'2.3.0',code:'permission',at:'2026-11-01T00:00:00.000Z',cancelled:false,resolved:false,...(cached?{manifest:old}:{})};
+ fs.writeFileSync(f.store.record,JSON.stringify({failure}));
+ const store=new CoreStore(f.dir,'2.5.2',f.runtime,f.pub),next=f.make('2.5.3'),manifest=Buffer.from(JSON.stringify(next.m));let switched=0;
+ const updater=new CoreUpdater(store,()=>switched++,async(asset,file)=>fs.writeFileSync(file,asset.url==='manifest'?manifest:next.bytes));
+ const result=await updater.update({version:'2.5.3',manifest:{url:'manifest',size:manifest.length,sha256:crypto.createHash('sha256').update(manifest).digest('hex')},archive:{url:'archive',size:next.m.size,sha256:next.m.sha256}},()=>{});
+ assert.equal(result,'applied');assert.equal(switched,1);assert.equal(store.failure().resolved,false);assert.equal(store.candidate().version,'2.5.3');store.confirm(next.m);assert.equal(store.failure(),undefined);assert.equal(store.active().version,'2.5.3');
+});
 for(const platform of ['win32','darwin'])test(platform+' signed immutable update only becomes active after confirmation',t=>{
  const f=fixture(t,platform),a=f.put(f.make());assert.equal(f.store.active(),undefined);f.store.stage(a);assert.equal(f.store.active(),undefined);assert.deepEqual(f.store.candidate(),a);assert.deepEqual(f.store.workerCandidate(a.sha256),a);f.store.confirm(a);assert.equal(f.store.active().version,'2.1.2');
  const b=f.put(f.make('2.1.3'));f.store.stage(b);f.store.candidate();assert(fs.existsSync(f.store.file(a)));f.store.confirm(b);assert(!fs.existsSync(f.store.file(a)));assert.equal(f.store.active().version,'2.1.3');

@@ -71,7 +71,7 @@ function Updates(){
 }
 function Controller({s}:{s:State}){
  const o=s.options,labels:Record<string,string>={low:'저 · 절전',medium:'중 · 균형',high:'고 · 풍성하게',custom:'사용자 설정'};
- return <div className="controller"><header><div className="eyebrow">DESKTOP COMPANION</div><h1>Keyboard Cat <span>리모컨</span></h1><p>내 PC에 맞게 가볍게, 또는 풍성하게. <span data-app-version>v{s.version}</span> · {s.buildLabel}</p></header>
+ return <div className="controller"><header><div className="eyebrow">개발자 · blacktrowell</div><h1>Keyboard Cat <span>리모컨</span></h1><p>내 PC에 맞게 가볍게, 또는 풍성하게. <span data-app-version>v{s.version}</span> · {s.buildLabel}</p></header>
   {s.updateAvailable&&<button className="update-badge" data-update-badge onClick={()=>document.querySelector('[aria-label="앱 업데이트"]')?.scrollIntoView({behavior:'smooth'})}>새 업데이트 · v{s.updateAvailable}</button>}
   <AvatarName name={o.avatarName} display={o.nameDisplay}/><PetPicker options={o}/>
   <div className="section-label">화질 / 성능 <span>{labels[o.quality]}</span></div>

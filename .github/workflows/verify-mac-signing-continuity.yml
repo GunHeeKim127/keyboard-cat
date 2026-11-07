@@ -1,0 +1,28 @@
+name: Verify Mac signing continuity
+on:
+  push:
+    branches: ['codex/mac-permission-continuity']
+    paths: ['scripts/check-mac-signing-continuity.cjs', '.github/workflows/verify-mac-signing-continuity.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  identity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: node scripts/check-mac-signing-continuity.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: mac-signing-continuity-${{ matrix.os }}
+          path: work/mac-signing-reports/
+          if-no-files-found: warn

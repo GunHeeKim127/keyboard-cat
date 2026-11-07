@@ -3,7 +3,7 @@
   "version": "2.5.2",
   "private": true,
   "description": "Privacy-first Windows and macOS keyboard companion",
-  "author": "Keyboard Cat",
+  "author": "blacktrowell",
   "main": "dist-electron/bootstrap.js",
   "scripts": {
     "dev": "npm run build && electron .",

@@ -37,7 +37,7 @@ async function main(){try{
   try{await signer({appOutDir:path.dirname(copy),packager:{appInfo:{productFilename:'Keyboard Cat'}}});}finally{for(const [name,value] of [['KEYBOARD_CAT_MAC_IDENTITY',saved.identity],['KEYBOARD_CAT_MAC_KEYCHAIN',saved.keychain]]){if(value===undefined)delete process.env[name];else process.env[name]=value;}}
   const after=binaries.map(p=>signer.requirement(path.join(copy,p)));assert.deepEqual(after,before);
   for(let n=0;n<binaries.length;n++)run('/usr/bin/codesign',['--verify','--strict','-R','='+before[n],path.join(copy,binaries[n])]);
-  run(process.execPath,['scripts/run-packaged-smoke.cjs',root],{env,maxBuffer:16*1024*1024});run(process.execPath,['scripts/run-interaction-smoke.cjs',root],{env,maxBuffer:16*1024*1024});
+  run(process.execPath,['scripts/run-packaged-smoke.cjs',app],{env,maxBuffer:16*1024*1024});run(process.execPath,['scripts/run-interaction-smoke.cjs',app],{env,maxBuffer:16*1024*1024});
   application={appAndTwoHelpersKeepIdentity:true,requirements:before,packagedApplicationPassed:true,interactionsPassed:true};
  }
  const report={sameIdentityAcrossChangedCode:true,wrongKeyRejected,requirement:a,application,arch:process.arch,gatekeeperTrust:'not claimed',actualInputMonitoringPermission:'not tested',tccOrTrustSettingsModified:false};
@@ -49,3 +49,4 @@ async function main(){try{
 }
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1;});
+

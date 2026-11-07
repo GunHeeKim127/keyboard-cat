@@ -1,0 +1,52 @@
+name: Build Mac fixed identity preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            app: work/mac-signing-app/mac-arm64/Keyboard Cat.app
+          - os: macos-15-intel
+            arch: x64
+            app: work/mac-signing-app/mac/Keyboard Cat.app
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=low --registry=https://registry.npmjs.org
+      - name: Import the fixed encrypted signing identity
+        env:
+          KEYBOARD_CAT_MAC_P12_BASE64: ${{ secrets.MAC_CONTINUITY_P12 }}
+          KEYBOARD_CAT_MAC_P12_PASSWORD: ${{ secrets.MAC_CONTINUITY_PASSWORD }}
+        run: node scripts/mac-continuity-keychain.cjs
+      - run: npm run build
+      - run: npm test
+      - name: Build privately signed preview without notarization
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx --no-install electron-builder --config build/mac-continuity.cjs --mac dmg zip --${{ matrix.arch }} --publish never
+      - run: node scripts/run-packaged-smoke.cjs "${{ matrix.app }}"
+      - run: node scripts/run-interaction-smoke.cjs "${{ matrix.app }}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: mac-fixed-identity-preview-${{ matrix.arch }}
+          path: |
+            work/mac-signing-app/*-mac-${{ matrix.arch }}.dmg
+            work/mac-signing-app/*-mac-${{ matrix.arch }}.zip
+            work/launcher-reports/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Remove the runner's temporary signing keychain
+        if: always()
+        run: node scripts/mac-continuity-keychain.cjs --cleanup

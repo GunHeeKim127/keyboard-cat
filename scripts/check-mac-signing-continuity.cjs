@@ -20,9 +20,9 @@ try{
  const first=identity('test-A'),second=identity('test-B');run('/usr/bin/security',['set-key-partition-list','-S','apple-tool:,apple:','-s','-k',password,keychain]);
  const files=[];for(let n=0;n<2;n++){const source=path.join(temp,'v'+n+'.c'),file=path.join(temp,'v'+n);fs.writeFileSync(source,'int main(void){return '+n+';}\n');run('/usr/bin/xcrun',['clang',source,'-o',file]);sign(file,first);files.push(file);}
  const a=requirement(files[0]),b=requirement(files[1]);assert(a&&a===b);assert(/certificate|anchor/.test(a));assert(!/^cdhash /.test(a));
- run('/usr/bin/codesign',['--verify','--strict','-R',a,files[1]]);
+ run('/usr/bin/codesign',['--verify','--strict','-R','='+a,files[1]]);
  const other=path.join(temp,'other-key');fs.copyFileSync(files[1],other);sign(other,second);assert.notEqual(requirement(other),a);
- let wrongKeyRejected=false;try{run('/usr/bin/codesign',['--verify','--strict','-R',a,other]);}catch{wrongKeyRejected=true;}assert(wrongKeyRejected);
+ let wrongKeyRejected=false;try{run('/usr/bin/codesign',['--verify','--strict','-R','='+a,other]);}catch{wrongKeyRejected=true;}assert(wrongKeyRejected);
  const report={sameIdentityAcrossChangedCode:true,wrongKeyRejected,requirement:a,arch:process.arch,gatekeeperTrust:'not claimed',actualInputMonitoringPermission:'not tested',tccOrTrustSettingsModified:false};
  fs.mkdirSync('work/mac-signing-reports',{recursive:true});fs.writeFileSync('work/mac-signing-reports/'+process.arch+'.json',JSON.stringify(report,null,2));console.log('MAC_SIGNING_CONTINUITY_OK '+JSON.stringify(report));
 }finally{
@@ -30,3 +30,4 @@ try{
  try{run('/usr/bin/security',['delete-keychain',keychain]);}catch{}
  if(path.dirname(temp)===os.tmpdir()&&path.basename(temp).startsWith('keyboard-cat-signing-'))fs.rmSync(temp,{recursive:true,force:true});
 }
+

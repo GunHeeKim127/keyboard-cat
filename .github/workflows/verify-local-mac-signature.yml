@@ -1,8 +1,5 @@
 name: Verify locally signed Mac app
 on:
-  push:
-    branches: ['codex/mac-permission-continuity']
-    paths: ['.github/workflows/verify-local-mac-signature.yml', 'scripts/verify-local-mac-signature.py']
   workflow_dispatch:
     inputs:
       asset_id:
@@ -15,8 +12,7 @@ on:
         description: Expected public certificate SHA1
         required: true
 permissions:
-  # Temporary, explicitly approved draft-read permission; restore after this test.
-  contents: write
+  contents: read
 jobs:
   verify:
     runs-on: macos-15

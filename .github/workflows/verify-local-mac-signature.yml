@@ -15,7 +15,8 @@ on:
         description: Expected public certificate SHA1
         required: true
 permissions:
-  contents: read
+  # Temporary, explicitly approved draft-read permission; restore after this test.
+  contents: write
 jobs:
   verify:
     runs-on: macos-15

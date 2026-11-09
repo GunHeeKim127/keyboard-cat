@@ -1,5 +1,8 @@
 name: Verify locally signed Mac app
 on:
+  push:
+    branches: ['codex/mac-permission-continuity']
+    paths: ['.github/workflows/verify-local-mac-signature.yml', 'scripts/verify-local-mac-signature.py']
   workflow_dispatch:
     inputs:
       asset_id:
@@ -29,15 +32,15 @@ jobs:
       - name: Fetch signed app from this repository
         env:
           GH_TOKEN: ${{ github.token }}
-          ASSET_ID: ${{ inputs.asset_id }}
+          ASSET_ID: ${{ inputs.asset_id || '725614655' }}
         run: |
           [[ "$ASSET_ID" =~ ^[0-9]+$ ]] || exit 1
           mkdir -p work
           gh api -H 'Accept: application/octet-stream' "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" > work/local-signed-app.tar.gz
       - name: Check Apple signatures and application behavior
         env:
-          EXPECTED_HASH: ${{ inputs.sha256 }}
-          EXPECTED_CERTIFICATE: ${{ inputs.certificate }}
+          EXPECTED_HASH: ${{ inputs.sha256 || '2bbd1528cb1e57b06f26455062b84cf555b3714144e8a3bf436da6caa7601950' }}
+          EXPECTED_CERTIFICATE: ${{ inputs.certificate || '8AA11434464D91D0A60D290C9E2A7E478F903CDB' }}
         run: python scripts/verify-local-mac-signature.py work/local-signed-app.tar.gz "$EXPECTED_HASH" "$EXPECTED_CERTIFICATE"
       - uses: actions/upload-artifact@v6
         if: always()

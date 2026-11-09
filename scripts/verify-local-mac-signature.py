@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('archive')
 parser.add_argument('sha256')
 parser.add_argument('certificate')
+parser.add_argument('--package-label')
 args = parser.parse_args()
 if not re.fullmatch(r'[0-9a-f]{64}', args.sha256): raise ValueError('Invalid archive hash')
 if not re.fullmatch(r'[0-9A-F]{40}', args.certificate): raise ValueError('Invalid certificate hash')
@@ -50,3 +51,11 @@ pathlib.Path('work/local-signature-native-report.json').write_text(json.dumps({
     'nativeVerificationPassed': True, 'requirements': requirements,
     'privateKeyUploaded': False, 'physicalMacPermissionTest': 'not performed',
 }, indent=2))
+if args.package_label:
+    if not re.fullmatch(r'[A-Za-z0-9.-]+', args.package_label): raise ValueError('Invalid package label')
+    output = pathlib.Path('work/verified-mac-preview'); output.mkdir(exist_ok=False)
+    root = pathlib.Path('work/preview-dmg-root'); root.mkdir(exist_ok=False)
+    subprocess.run(['ditto', str(app), str(root / app.name)], check=True)
+    (root / 'Applications').symlink_to('/Applications')
+    subprocess.run(['hdiutil', 'create', '-volname', 'Keyboard Cat fixed identity preview', '-srcfolder', str(root), '-ov', '-format', 'UDZO', str(output / (args.package_label + '.dmg'))], check=True)
+    subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(output / (args.package_label + '.zip'))], check=True)

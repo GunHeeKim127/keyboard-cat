@@ -1,0 +1,50 @@
+name: Verify fixed Mac preview
+on:
+  push:
+    branches: ['codex/mac-permission-continuity']
+    paths: ['.github/workflows/verify-fixed-mac-preview.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            sha256: c48a93a17744d36ba2ff6625fdd31a6188293d4acfaf856c749fed16736ce9ee
+          - os: macos-15-intel
+            arch: x64
+            sha256: b708edc7b3c6f10172f6c290e24451cb62f29d2dca9eef6d10a33db174671848
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: npm ci
+      - name: Download public trial payload without repository write access
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p work
+          curl --fail --location --retry 3 --proto '=https' --proto-redir '=https' "https://github.com/GunHeeKim127/keyboard-cat/releases/download/mac-fixed-identity-preview-1/Keyboard-Cat-2.5.2-fixed-preview-$ARCH.tar.gz" -o work/fixed-preview.tar.gz
+      - name: Verify and package
+        env:
+          ARCH: ${{ matrix.arch }}
+          EXPECTED_HASH: ${{ matrix.sha256 }}
+        run: python scripts/verify-local-mac-signature.py work/fixed-preview.tar.gz "$EXPECTED_HASH" AE37A9663433A2C80338B686DB8180EB6FDF4082 --package-label "Keyboard-Cat-2.5.2-fixed-preview-$ARCH"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: fixed-mac-preview-${{ matrix.arch }}
+          path: |
+            work/local-signature-native-report.json
+            work/launcher-reports/
+            work/verified-mac-preview/
+          if-no-files-found: warn

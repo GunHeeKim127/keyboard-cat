@@ -1,0 +1,49 @@
+name: Verify locally signed Mac app
+on:
+  workflow_dispatch:
+    inputs:
+      asset_id:
+        description: Repository draft asset ID (signed app only)
+        required: true
+      sha256:
+        description: Expected signed archive SHA256
+        required: true
+      certificate:
+        description: Expected public certificate SHA1
+        required: true
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: npm ci
+      - name: Fetch signed app from this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ inputs.asset_id }}
+        run: |
+          [[ "$ASSET_ID" =~ ^[0-9]+$ ]] || exit 1
+          mkdir -p work
+          gh api -H 'Accept: application/octet-stream' "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" > work/local-signed-app.tar.gz
+      - name: Check Apple signatures and application behavior
+        env:
+          EXPECTED_HASH: ${{ inputs.sha256 }}
+          EXPECTED_CERTIFICATE: ${{ inputs.certificate }}
+        run: python scripts/verify-local-mac-signature.py work/local-signed-app.tar.gz "$EXPECTED_HASH" "$EXPECTED_CERTIFICATE"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: local-mac-signature-native-verification
+          path: |
+            work/local-signature-native-report.json
+            work/launcher-reports/
+          if-no-files-found: warn

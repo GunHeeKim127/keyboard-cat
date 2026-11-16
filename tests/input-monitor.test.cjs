@@ -36,6 +36,30 @@ test('a pending OS permission prompt is not killed by the readiness timeout',t=>
  t.mock.timers.tick(60000);assert.equal(f.children[0].killed,undefined);assert.equal(f.monitor.status,'permission');
  f.children[0].stderr.write('INPUT_READY\n');assert.equal(f.monitor.status,'ready');
 });
+
+test('returning from permission settings replaces a waiting helper and ignores its stale denial',t=>{
+ const f=fixture(t);f.monitor.start();const old=f.children[0];
+ old.stderr.write('PERMISSION_REQUIRED\n');f.monitor.retryNow();
+ assert.equal(old.killed,true);assert.deepEqual(f.prompts,[true,false]);
+ old.stderr.write('ACCESS_DENIED\n');old.emit('exit',77);
+ f.children[1].stderr.write('ACCESS_ALLOWED\nTAP_CREATED\nINPUT_READY\n');
+ f.children[1].stdout.write('2\n');
+ assert.equal(f.monitor.status,'ready');assert.deepEqual(f.counts,[2]);
+});
+
+test('permission wait is bounded even if the OS request never returns, without another prompt',t=>{
+ const f=fixture(t);f.monitor.start();const old=f.children[0];old.stderr.write('PERMISSION_REQUIRED\n');
+ t.mock.timers.tick(120000);assert.equal(old.killed,true);assert.equal(f.monitor.status,'permission');
+ assert.equal(f.monitor.diagnostics.timedOut,true);t.mock.timers.tick(5000);
+ assert.deepEqual(f.prompts,[true,false]);f.monitor.stop();t.mock.timers.tick(120000);
+ assert.equal(f.children.length,2);
+});
+
+test('permission recovery never restarts an already working helper',t=>{
+ const f=fixture(t);f.monitor.start();f.children[0].stderr.write('PERMISSION_REQUIRED\nINPUT_READY\n');
+ f.monitor.retryNow();t.mock.timers.tick(120000);
+ assert.equal(f.children.length,1);assert.equal(f.children[0].killed,undefined);assert.equal(f.monitor.status,'ready');
+});
 test('fixed diagnostic tokens distinguish OS denial from tap failure without retaining arbitrary output',t=>{
  const f=fixture(t);f.monitor.start();const old=f.children[0];
  old.stderr.write('ACCESS_ALLOWED\nTAP_CREATE_FAILED\nprivate typed text\n');

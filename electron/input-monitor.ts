@@ -13,6 +13,15 @@ export class InputMonitor {
  constructor(private platform:string,private launch:(prompt:boolean)=>ChildProcess,private onCount:(n:number)=>void,private onStatus:(status:InputStatus)=>void){}
  private change(status:InputStatus){this.status=status;this.onStatus(status);}
  private clearTimers(){if(this.retry)clearTimeout(this.retry);if(this.timeout)clearTimeout(this.timeout);this.retry=this.timeout=undefined;}
+ private watch(child:ChildProcess,delay:number,permissionWait=false){
+  if(this.timeout)clearTimeout(this.timeout);
+  this.timeout=setTimeout(()=>{
+   if(this.child!==child)return;
+   this.child=undefined;this.timeout=undefined;child.kill();this.diagnostics.timedOut=true;
+   this.change(permissionWait?'permission':this.platform==='darwin'?'unavailable':'error');
+   if(this.platform==='darwin')this.retry=setTimeout(()=>this.start(false),5000);
+  },delay);
+ }
  start(prompt=true){
   if(this.child)return;
   this.clearTimers();this.diagnostics={attempt:this.diagnostics.attempt+1,access:'unknown',request:'unknown',tap:'unknown',exitCode:null,signal:null,launchError:'none',timedOut:false};this.change('starting');
@@ -36,7 +45,15 @@ export class InputMonitor {
    const tokens:Record<string,()=>void>={ACCESS_ALLOWED:()=>{this.diagnostics.access='allowed';},ACCESS_DENIED:()=>{this.diagnostics.access='denied';},REQUEST_ALLOWED:()=>{this.diagnostics.request='allowed';},REQUEST_DENIED:()=>{this.diagnostics.request='denied';},TAP_CREATED:()=>{this.diagnostics.tap='created';},TAP_CREATE_FAILED:()=>{this.diagnostics.tap='failed';},TAP_INVALID:()=>{this.diagnostics.tap='invalid';},TAP_DISABLED:()=>{this.diagnostics.tap='disabled';}};
    if(Object.hasOwn(tokens,line)){tokens[line]();this.change(this.status);return;}
    if(line==='INPUT_READY'||line==='RAW_INPUT_READY')ready();
-   else if(line==='PERMISSION_REQUIRED'){if(this.timeout)clearTimeout(this.timeout);this.timeout=undefined;this.change('permission');}
+   else if(line==='PERMISSION_REQUIRED'){
+    // The OS request may remain blocked after the user changes Settings. Keep
+    // time for the initial prompt, but never disable recovery indefinitely.
+    if(this.status!=='permission'){
+     this.change('permission');
+     if(this.platform==='darwin')this.watch(child,120000,true);
+     else {if(this.timeout)clearTimeout(this.timeout);this.timeout=undefined;}
+    }
+   }
    else if(line==='EVENT_TAP_UNAVAILABLE')this.change('unavailable');
   });
   createInterface({input:child.stdout}).on('line',line=>{
@@ -44,10 +61,14 @@ export class InputMonitor {
    const n=Number(line);if(n<1||n>1000)return;
    if(this.status!=='ready')ready();this.onCount(n);
   });
-  this.timeout=setTimeout(()=>{if(this.child===child){this.child=undefined;child.kill();this.timeout=undefined;this.diagnostics.timedOut=true;this.change(this.platform==='darwin'?'unavailable':'error');if(this.platform==='darwin')this.retry=setTimeout(()=>this.start(false),5000);}},30000);
+  this.watch(child,30000);
  }
  stop(){this.clearTimers();const child=this.child;this.child=undefined;child?.kill();this.change('stopped');}
- retryNow(){if(!this.child&&(this.status==='permission'||this.status==='unavailable'))this.start(false);}
+ retryNow(){
+  if(this.status!=='permission'&&this.status!=='unavailable')return;
+  if(this.child){if(this.platform!=='darwin')return;this.stop();}
+  this.start(false);
+ }
 }
 export function inputError(status:InputStatus){
  return status==='permission'?'입력 모니터링 권한 필요 · 허용 후 자동으로 다시 연결합니다':status==='unavailable'?'macOS 입력 감지 시작 실패 · 권한 확인 후 다시 연결':status==='error'?'입력 감지 중단 · 다시 연결을 눌러주세요':'';

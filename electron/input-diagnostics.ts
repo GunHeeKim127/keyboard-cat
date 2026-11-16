@@ -1,6 +1,24 @@
 import path from 'node:path';
 import {existsSync,readdirSync,realpathSync} from 'node:fs';
-import {execFileSync} from 'node:child_process';
+import {execFile,execFileSync} from 'node:child_process';
+
+type IdentityProbe=(file:string)=>Promise<string>;
+// Only explicitly requested diagnostics inspect public signing metadata. Never
+// read keychains, private keys, TCC databases, command arguments or key events.
+export async function macSigningIdentity(executable:string,helper:string,probe:IdentityProbe=file=>new Promise(resolve=>{
+ execFile('/usr/bin/codesign',['-d','--verbose=2','-r-',file],{encoding:'utf8',timeout:2000,maxBuffer:65536,windowsHide:true},(error,stdout,stderr)=>resolve(error?'':stdout+'\n'+stderr));
+})){
+ return Promise.all([['앱',executable],['입력 보조 프로그램',helper]].map(async([label,file])=>{
+  try{
+   const text=await probe(file);
+   const identifier=/^Identifier=([^\r\n]{1,200})$/m.exec(text)?.[1];
+   const authority=/^Authority=([^\r\n]{1,200})$/m.exec(text)?.[1];
+   const certificate=/certificate (?:root|leaf|0)\s*=\s*H"([a-f\d]{40})"/i.exec(text)?.[1].toUpperCase();
+   const adhoc=/^Signature=adhoc$/m.test(text);
+   return `${label} 서명 식별: ${identifier?`ID=${identifier} · ${adhoc?'ad-hoc':`발급 이름=${authority||'확인 불가'}`} · 고정 인증서=${certificate||'확인 불가'}`:'확인 불가'}`;
+  }catch{return `${label} 서명 식별: 확인 불가`;}
+ }));
+}
 
 export function runningMacCopies(run:()=>string=()=>execFileSync('/bin/ps',['-axo','pid=,comm='],{encoding:'utf8',timeout:1500,maxBuffer:1024*1024})){
  try{return run().split('\n').filter(line=>/^\s*\d+\s+.*\/Keyboard[ -]Cat[^/]*\.app\/Contents\/(MacOS|Resources)\/(Keyboard Cat|KeyCounter-mac)\s*$/i.test(line)).map(line=>line.trim());}catch{return ['프로세스 목록 확인 불가'];}

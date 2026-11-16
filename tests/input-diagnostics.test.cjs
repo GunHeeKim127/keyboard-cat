@@ -1,5 +1,13 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {findMacCopies,macLaunchLocation,runningMacCopies,macLeftovers}=require('../dist-electron/input-diagnostics.js');
+const {findMacCopies,macLaunchLocation,runningMacCopies,macLeftovers,macSigningIdentity}=require('../dist-electron/input-diagnostics.js');
+
+test('signing diagnostics retain only public identity fields, excluding arbitrary paths or output',async()=>{
+ const fingerprint='AE37A9663433A2C80338B686DB8180EB6FDF4082';
+ const result=await macSigningIdentity('/app','/helper',async file=>file==='/app'?`Executable=/private/user\nIdentifier=local.keyboardcat.pet\nAuthority=blacktrowell\ndesignated => identifier "local.keyboardcat.pet" and certificate root = H"${fingerprint.toLowerCase()}"\nsecret text`:'Identifier=KeyCounter-mac\nSignature=adhoc');
+ assert.match(result[0],/blacktrowell/);assert.ok(result[0].includes(fingerprint));assert.match(result[1],/ad-hoc/);
+ assert.ok(!result.join().includes('/private/user'));assert.ok(!result.join().includes('secret text'));
+ assert.deepEqual(await macSigningIdentity('/app','/helper',async()=>{throw Error('private error');}),['앱 서명 식별: 확인 불가','입력 보조 프로그램 서명 식별: 확인 불가']);
+});
 test('copy discovery finds only named apps in explicit roots, without deleting settings or searching subfolders',()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'cat-copies-')),home=path.join(root,'home'),apps=path.join(root,'Applications'),volumes=path.join(root,'Volumes');
  const make=p=>{fs.mkdirSync(path.join(p,'Contents'),{recursive:true});fs.writeFileSync(path.join(p,'Contents','Info.plist'),'fixture');return fs.realpathSync(p);};

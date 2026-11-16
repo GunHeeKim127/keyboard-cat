@@ -2,7 +2,7 @@ name: Verify Mac signing continuity
 on:
   push:
     branches: ['codex/mac-permission-continuity']
-    paths: ['scripts/check-mac-signing-continuity.cjs', 'scripts/sign-mac-continuity.cjs', 'build/mac-continuity.cjs', '.github/workflows/verify-mac-signing-continuity.yml']
+    paths: ['scripts/check-mac-signing-continuity.cjs', 'scripts/sign-mac-continuity.cjs', 'build/mac-continuity.cjs', '.github/workflows/verify-mac-signing-continuity.yml', 'electron/input-monitor.ts', 'electron/input-diagnostics.ts', 'electron/main.ts', 'tests/input-monitor.test.cjs', 'tests/input-diagnostics.test.cjs']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +21,7 @@ jobs:
           node-version: '24'
       - run: npm ci
       - run: node scripts/check-mac-signing-continuity.cjs --package
+      - run: npm test
       - uses: actions/upload-artifact@v6
         if: always()
         with:

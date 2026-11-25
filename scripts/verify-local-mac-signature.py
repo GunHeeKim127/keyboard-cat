@@ -38,12 +38,15 @@ with tarfile.open(archive) as source:
 app = destination / 'Keyboard Cat.app'
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
 requirements = {}
+identifiers = {'': 'local.keyboardcat.pet', 'Contents/MacOS/KeyCounter-mac': 'KeyCounter-mac', 'Contents/MacOS/DesktopScene-mac': 'DesktopScene-mac'}
 for relative in ['', 'Contents/MacOS/KeyCounter-mac', 'Contents/MacOS/DesktopScene-mac']:
     item = app / relative
     result = subprocess.run(['codesign', '-d', '-r-', str(item)], text=True, capture_output=True, check=True)
     text = result.stdout + result.stderr
     if args.certificate not in text.upper() or 'cdhash' in text.lower():
         raise ValueError('Signature does not use expected fixed certificate')
+    if 'identifier "' + identifiers[relative] + '"' not in text:
+        raise ValueError('Public preview signing identifier changed')
     requirements[relative or 'app'] = text.strip()
 subprocess.run(['node', 'scripts/run-packaged-smoke.cjs', str(app.resolve())], check=True)
 subprocess.run(['node', 'scripts/run-interaction-smoke.cjs', str(app.resolve())], check=True)

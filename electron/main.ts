@@ -114,7 +114,7 @@ let installedUpdater:InstalledUpdater|undefined,installQuitArmed=false;
 let updateRecovery:UpdateRecovery|undefined,startupTimer:ReturnType<typeof setInterval>|undefined;
 let managedUpdateFiles:ManagedUpdateFiles|undefined;
 let installerGate:InstallerGate|undefined;
-const buildLabel='연속 걷기 · 자율 행동 시간 랜덤 · 입력 우선';
+const buildLabel=process.platform==='darwin'?'Mac 권한 재연결 수정 2':'연속 걷기 · 자율 행동 시간 랜덤 · 입력 우선';
 const updates=new UpdateChecker(currentVersion,process.platform,process.arch,false,undefined,url=>shell.openExternal(url));
 function updateChanged(){if(quitting)return;refresh();send();remote?.webContents.send('update-status');}
 const updateChecks=new PeriodicUpdateCheck(()=>updates.check(),updateChanged);

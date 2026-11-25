@@ -5,7 +5,7 @@
 ## 받는 파일
 - M1 Pro를 포함한 Apple 칩 Mac: **Keyboard-Cat-2.5.2-permission-preview2-arm64.dmg**
 - Intel Mac: **Keyboard-Cat-2.5.2-permission-preview2-x64.dmg**
-- 자세한 설치·확인 방법: **Mac-권한수정2-설치안내.md**
+- 자세한 설치·확인 방법: **[한글 설치·확인 안내](https://github.com/GunHeeKim127/keyboard-cat/releases/download/mac-fixed-identity-preview-2/Mac-Permission-Fix2-Guide-KO.md)**
 - tar.gz는 자동 검사용 자료입니다. 설치할 때는 DMG를 받으세요.
 
 ## 바뀐 부분

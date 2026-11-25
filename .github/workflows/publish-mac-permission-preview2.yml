@@ -2,7 +2,7 @@ name: Publish verified Mac permission preview 2
 on:
   push:
     branches: ['codex/mac-permission-continuity']
-    paths: ['.github/workflows/publish-mac-permission-preview2.yml']
+    paths: ['.github/workflows/publish-mac-permission-preview2.yml', 'scripts/publish-mac-permission-preview2.cjs', 'build/mac-permission-preview2-release.md']
 permissions:
   contents: read
 jobs:

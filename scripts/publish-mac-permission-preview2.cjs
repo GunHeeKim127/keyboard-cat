@@ -25,7 +25,7 @@ async function main(){
   if(size<100*1024*1024||size>300*1024*1024)throw Error('Unexpected DMG size');
   files.push({file,name:path.basename(file),sha256:await sha256(file),size});
  }
- const guide=path.join(output,'Mac-권한수정2-설치안내.md');fs.copyFileSync('MAC-PERMISSION-PREVIEW2.md',guide);
+ const guide=path.join(output,'Mac-Permission-Fix2-Guide-KO.md');fs.copyFileSync('MAC-PERMISSION-PREVIEW2.md',guide);
  files.push({file:guide,name:path.basename(guide),sha256:await sha256(guide),size:fs.statSync(guide).size});
  const sums=path.join(output,'SHA256SUMS.txt');fs.writeFileSync(sums,files.map(f=>`${f.sha256}  ${f.name}`).join('\n')+'\n');
  files.push({file:sums,name:path.basename(sums),sha256:await sha256(sums),size:fs.statSync(sums).size});

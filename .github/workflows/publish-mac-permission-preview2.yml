@@ -1,0 +1,45 @@
+name: Publish verified Mac permission preview 2
+on:
+  push:
+    branches: ['codex/mac-permission-continuity']
+    paths: ['.github/workflows/publish-mac-permission-preview2.yml']
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Publication was explicitly requested. Write access exists only for this
+    # publishing job; neither builds nor native verification receive it.
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v6
+        with:
+          name: permission-preview2-delivery-arm64
+          path: work/delivery-arm64
+          run-id: 45561045179
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v6
+        with:
+          name: permission-preview2-delivery-x64
+          path: work/delivery-x64
+          run-id: 45561045179
+          github-token: ${{ github.token }}
+      - name: Publish only the verified trial DMGs and public instructions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-mac-permission-preview2.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: permission-preview2-publication-record
+          path: work/permission-preview2-publication/
+          if-no-files-found: warn
